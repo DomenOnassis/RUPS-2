@@ -55,3 +55,24 @@ def verify_token(token: Optional[str] = Depends(_get_bearer_token)):
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return {"email": user.email, "id": user.id, "name": user.name}
+
+def get_current_user(token: str = Depends(_get_bearer_token)):
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    try:
+        payload = security.decode_access_token(token)
+        email: str = payload.get("sub")
+
+        if email is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user = get_user_by_email(email)
+
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return user

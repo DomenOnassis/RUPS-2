@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import auth
+from routers import auth, circuit
 from database import create_db_and_tables
 
 
@@ -12,3 +12,4 @@ def on_startup():
 
 
 app.include_router(auth.router)
+app.include_router(circuit.router)
