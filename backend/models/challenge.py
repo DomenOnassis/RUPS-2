@@ -1,0 +1,22 @@
+from sqlmodel import JSON, Column, SQLModel, Field, Relationship
+from typing import Optional, List
+
+class Challenge(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str
+    description: str
+
+
+class ChallengeProgress(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int
+    challenge_id: int
+    completed: bool = False
+
+
+class ChallengeAttempt(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int
+    challenge_id: int
+    data: dict = Field(sa_column=Column(JSON))
+
