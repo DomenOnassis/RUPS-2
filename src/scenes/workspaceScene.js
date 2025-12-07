@@ -318,6 +318,23 @@ export default class WorkspaceScene extends Phaser.Scene {
     return { x: snappedX, y: snappedY };
   }
 
+  isPositionOccupied(x, y, excludeComponent = null) {
+    const componentSize = 80;
+    const tolerance = 10;
+
+    for (let component of this.placedComponents) {
+      if (component === excludeComponent || component.getData('isInPanel')) continue;
+      
+      const dx = Math.abs(component.x - x);
+      const dy = Math.abs(component.y - y);
+      
+      if (dx < componentSize - tolerance && dy < componentSize - tolerance) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   getRandomInt(min, max) {
     const minCeiled = Math.ceil(min);
     const maxFloored = Math.floor(max);
@@ -395,7 +412,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'baterija')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp);
         break;
@@ -413,7 +430,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'upor')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp)
         break;
@@ -430,7 +447,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'svetilka')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp);
         break;
@@ -448,7 +465,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'stikalo-on')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp)
         break;
@@ -466,7 +483,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'stikalo-off')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp)
         break;
@@ -483,7 +500,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'žica')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp);
         break;
@@ -491,7 +508,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         id = "ammeter_" + this.getRandomInt(1000, 9999);
         componentImage = this.add.image(0, 0, 'ampermeter')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', null)
         break;
@@ -499,7 +516,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         id = "voltmeter_" + this.getRandomInt(1000, 9999);
         componentImage = this.add.image(0, 0, 'voltmeter')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', null)
         break;
@@ -547,14 +564,18 @@ export default class WorkspaceScene extends Phaser.Scene {
     component.setData('rotation', 0);
     if (comp) component.setData('logicComponent', comp);
     component.setData('isDragging', false);
+    component.setData('dragMoved', false);
+    component.setData('lastClickTime', 0);
 
     this.input.setDraggable(component);
 
     component.on('dragstart', () => {
       component.setData('isDragging', true);
+      component.setData('dragMoved', false);
     });
 
     component.on('drag', (pointer, dragX, dragY) => {
+      component.setData('dragMoved', true);
       component.x = dragX;
       component.y = dragY;
     });
@@ -568,6 +589,14 @@ export default class WorkspaceScene extends Phaser.Scene {
       } else if (!isInPanel && component.getData('isInPanel')) {
         // s strani na mizo
         const snapped = this.snapToGrid(component.x, component.y);
+        
+        if (this.isPositionOccupied(snapped.x, snapped.y, component)) {
+          component.x = component.getData('originalX');
+          component.y = component.getData('originalY');
+          component.setData('isDragging', false);
+          return;
+        }
+
         component.x = snapped.x;
         component.y = snapped.y;
 
@@ -598,8 +627,18 @@ export default class WorkspaceScene extends Phaser.Scene {
       } else if (!component.getData('isInPanel')) {
         // na mizi in se postavi na mrežo
         const snapped = this.snapToGrid(component.x, component.y);
-        component.x = snapped.x;
-        component.y = snapped.y;
+        
+        if (this.isPositionOccupied(snapped.x, snapped.y, component)) {
+          const previousX = component.getData('previousX') || component.x;
+          const previousY = component.getData('previousY') || component.y;
+          component.x = previousX;
+          component.y = previousY;
+        } else {
+          component.setData('previousX', component.x);
+          component.setData('previousY', component.y);
+          component.x = snapped.x;
+          component.y = snapped.y;
+        }
 
         this.updateLogicNodePositions(component);
 
@@ -618,19 +657,35 @@ export default class WorkspaceScene extends Phaser.Scene {
     });
 
     component.on('pointerdown', () => {
-      if (!component.getData('isInPanel')) {
-        const currentRotation = component.getData('rotation');
-        const newRotation = (currentRotation + 90) % 360;
-        component.setData('rotation', newRotation);
-        component.setData('isRotated', !component.getData('isRotated'));
+      if (!component.getData('isInPanel') && !component.getData('dragMoved')) {
+        const currentTime = this.time.now;
+        const lastClickTime = component.getData('lastClickTime');
+        const timeDiff = currentTime - lastClickTime;
+        
+        if (timeDiff < 300) {
+          const currentRotation = component.getData('rotation');
+          const newRotation = (currentRotation + 90) % 360;
+          component.setData('rotation', newRotation);
+          component.setData('isRotated', !component.getData('isRotated'));
 
-        this.tweens.add({
-          targets: component,
-          angle: newRotation,
-          duration: 150,
-          ease: 'Cubic.easeOut',
-        });
+          this.tweens.add({
+            targets: component,
+            angle: newRotation,
+            duration: 150,
+            ease: 'Cubic.easeOut',
+          });
+          
+          component.setData('lastClickTime', 0);
+        } else {
+          component.setData('lastClickTime', currentTime);
+        }
       }
+    });
+
+    component.on('pointerup', () => {
+      this.time.delayedCall(100, () => {
+        component.setData('dragMoved', false);
+      });
     });
 
     // hover efekt

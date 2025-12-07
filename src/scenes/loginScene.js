@@ -69,44 +69,44 @@ export default class LoginScene extends Phaser.Scene {
         const inputWidth = 350;
         const inputHeight = 45;
 
-        const email = document.createElement('input');
-        email.type = 'email';
-        email.placeholder = 'Email';
-        email.style.position = 'absolute';
-        email.style.lineHeight = `${inputHeight}px`;
-        email.style.width = `${inputWidth}px`;
-        email.style.height = `${inputHeight}px`;
-        email.style.left = `${width / 2 - inputWidth / 2}px`;
-        email.style.top = `${panelY + 90}px`;
-        email.style.borderRadius = '8px';
-        email.style.padding = '5px';
-        email.style.border = '1px solid #ccc';
-        email.style.textAlign = 'center';
-        email.style.fontSize = '18px';
-        email.style.outline = 'none';
-        email.style.backgroundColor = '#f9f9f9';
-        document.body.appendChild(email);
-        this.inputs.email = email;
+        const username = document.createElement('input');
+        username.type = 'text';
+        username.placeholder = 'Username';
+        username.style.position = 'absolute';
+        username.style.lineHeight = `${inputHeight}px`;
+        username.style.width = `${inputWidth}px`;
+        username.style.height = `${inputHeight}px`;
+        username.style.left = `${width / 2 - inputWidth / 2}px`;
+        username.style.top = `${panelY + 90}px`;
+        username.style.borderRadius = '8px';
+        username.style.padding = '5px';
+        username.style.border = '1px solid #ccc';
+        username.style.textAlign = 'center';
+        username.style.fontSize = '18px';
+        username.style.outline = 'none';
+        username.style.backgroundColor = '#f9f9f9';
+        document.body.appendChild(username);
+        this.inputs.username = username;
 
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.placeholder = 'Username';
-        nameInput.style.position = 'absolute';
-        nameInput.style.lineHeight = `${inputHeight}px`;
-        nameInput.style.width = `${inputWidth}px`;
-        nameInput.style.height = `${inputHeight}px`;
-        nameInput.style.left = `${width / 2 - inputWidth / 2}px`;
-        nameInput.style.top = `${panelY + 150}px`;
-        nameInput.style.borderRadius = '8px';
-        nameInput.style.padding = '5px';
-        nameInput.style.border = '1px solid #ccc';
-        nameInput.style.textAlign = 'center';
-        nameInput.style.fontSize = '18px';
-        nameInput.style.outline = 'none';
-        nameInput.style.backgroundColor = '#f9f9f9';
-        nameInput.style.display = 'none';
-        document.body.appendChild(nameInput);
-        this.inputs.name = nameInput;
+        const emailInput = document.createElement('input');
+        emailInput.type = 'email';
+        emailInput.placeholder = 'Email';
+        emailInput.style.position = 'absolute';
+        emailInput.style.lineHeight = `${inputHeight}px`;
+        emailInput.style.width = `${inputWidth}px`;
+        emailInput.style.height = `${inputHeight}px`;
+        emailInput.style.left = `${width / 2 - inputWidth / 2}px`;
+        emailInput.style.top = `${panelY + 150}px`;
+        emailInput.style.borderRadius = '8px';
+        emailInput.style.padding = '5px';
+        emailInput.style.border = '1px solid #ccc';
+        emailInput.style.textAlign = 'center';
+        emailInput.style.fontSize = '18px';
+        emailInput.style.outline = 'none';
+        emailInput.style.backgroundColor = '#f9f9f9';
+        emailInput.style.display = 'none';
+        document.body.appendChild(emailInput);
+        this.inputs.email = emailInput;
 
         const password = document.createElement('input');
         password.type = 'password';
@@ -184,7 +184,7 @@ export default class LoginScene extends Phaser.Scene {
                 registerButtonBg.fillStyle(0x66bb6a, 1);
                 registerButtonBg.fillRoundedRect(registerButtonX - buttonWidth / 2, buttonY - buttonHeight / 2, buttonWidth, buttonHeight, 10);
             })
-            .on('pointerdown', () => this.toggleMode(loginButtonBg, registerButtonBg, loginButton, registerButton, nameInput));
+            .on('pointerdown', () => this.toggleMode(loginButtonBg, registerButtonBg, loginButton, registerButton));
 
         const backButton = this.add.text(40, 30, '↩ Back to menu', {
             fontFamily: 'Arial',
@@ -201,9 +201,9 @@ export default class LoginScene extends Phaser.Scene {
         this.events.once('shutdown', () => this.cleanup());
     }
 
-    toggleMode(loginBg, registerBg, loginButton, registerButton, nameInput) {
+    toggleMode(loginBg, registerBg, loginButton, registerButton) {
         this.isLogin = !this.isLogin;
-        this.inputs.name.style.display = this.isLogin ? 'none' : 'block';
+        this.inputs.email.style.display = this.isLogin ? 'none' : 'block';
         this.errorText.setText('');
 
         const { width, height } = this.scale;
@@ -237,36 +237,38 @@ export default class LoginScene extends Phaser.Scene {
     }
 
     async handleAuth() {
-        const email = this.inputs.email.value.trim();
+        const username = this.inputs.username.value.trim();
         const password = this.inputs.password.value.trim();
-        const name = this.inputs.name.value.trim();
 
         this.errorText.setText('');
 
-        if (!email || !password) {
-            this.errorText.setText('Enter email and password!');
-            return;
-        }
-
-        if (!this.isLogin && !name) {
-            this.errorText.setText('Enter name!');
-            return;
-        }
-
-        try {
-            if (this.isLogin) {
-                await this.login(email, password);
-            } else {
-                await this.register(email, password, name);
+        if (this.isLogin) {
+            if (!username || !password) {
+                this.errorText.setText('Enter username and password!');
+                return;
             }
-        } catch (error) {
-            this.errorText.setText(error.message);
+            try {
+                await this.login(username, password);
+            } catch (error) {
+                this.errorText.setText(error.message);
+            }
+        } else {
+            const email = this.inputs.email.value.trim();
+            if (!username || !password || !email) {
+                this.errorText.setText('Fill in all fields!');
+                return;
+            }
+            try {
+                await this.register(username, password, email);
+            } catch (error) {
+                this.errorText.setText(error.message);
+            }
         }
     }
 
-    async login(email, password) {
+    async login(username, password) {
         const formData = new FormData();
-        formData.append('username', email);
+        formData.append('username', username);
         formData.append('password', password);
 
         const response = await fetch(`${API_URL}/login`, {
@@ -281,23 +283,22 @@ export default class LoginScene extends Phaser.Scene {
 
         const data = await response.json();
         localStorage.setItem('token', data.access_token);
-        localStorage.setItem('email', email);
-        localStorage.setItem('username', data.name);
+        localStorage.setItem('username', username);
 
         this.cleanup();
         this.scene.start('LabScene');
     }
 
-    async register(email, password, name) {
+    async register(username, password, email) {
         const response = await fetch(`${API_URL}/register`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
+                username: username,
                 email: email,
-                password: password,
-                name: name
+                password: password
             })
         });
 
@@ -312,8 +313,8 @@ export default class LoginScene extends Phaser.Scene {
 
         const data = await response.json();
         localStorage.setItem('token', data.access_token);
+        localStorage.setItem('username', username);
         localStorage.setItem('email', email);
-        localStorage.setItem('username', name);
 
         this.cleanup();
         this.scene.start('LabScene');

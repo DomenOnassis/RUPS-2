@@ -12,11 +12,18 @@ import ScoreboardScene from './scenes/scoreboardScene';
 import WorkspaceScene from './scenes/workspaceScene';
 
 const config = {
-  type: Phaser.AUTO,            
-  width: window.innerWidth,                    
-  height: window.innerHeight,                   
-  backgroundColor: '#f4f6fa',    
-  parent: 'game-container',      
+  type: Phaser.WEBGL,
+  backgroundColor: '#f4f6fa',
+  parent: 'game-container',
+  render: {
+    antialias: true,
+    roundPixels: true,
+    pixelArt: false
+  },
+  scale: {
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  },
   scene: [
     // uvoz scen
     MenuScene,
@@ -36,7 +43,7 @@ const config = {
     }
   },
   scale: {
-    mode: Phaser.Scale.RESIZE,      
+    mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH
   }
 };
