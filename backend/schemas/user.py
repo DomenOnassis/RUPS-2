@@ -1,14 +1,14 @@
 from sqlmodel import SQLModel
 
 class UserCreate(SQLModel):
+    username: str
     email: str
     password: str
-    name: str | None = None
 
 class UserRead(SQLModel):
     id: int
+    username: str
     email: str
-    name: str | None = None
     is_active: bool
 
 class Token(SQLModel):
@@ -16,4 +16,4 @@ class Token(SQLModel):
     token_type: str = "bearer"
 
 class TokenData(SQLModel):
-    email: str | None = None
+    username: str | None = None
