@@ -395,7 +395,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'baterija')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp);
         break;
@@ -413,7 +413,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'upor')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp)
         break;
@@ -430,7 +430,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'svetilka')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp);
         break;
@@ -448,7 +448,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'stikalo-on')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp)
         break;
@@ -466,7 +466,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'stikalo-off')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp)
         break;
@@ -483,7 +483,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add.image(0, 0, 'žica')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', comp);
         break;
@@ -491,7 +491,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         id = "ammeter_" + this.getRandomInt(1000, 9999);
         componentImage = this.add.image(0, 0, 'ampermeter')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', null)
         break;
@@ -499,7 +499,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         id = "voltmeter_" + this.getRandomInt(1000, 9999);
         componentImage = this.add.image(0, 0, 'voltmeter')
           .setOrigin(0.5)
-          .setDisplaySize(100, 100);
+          .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData('logicComponent', null)
         break;
