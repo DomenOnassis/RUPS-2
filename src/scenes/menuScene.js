@@ -65,8 +65,8 @@ export default class MenuScene extends Phaser.Scene {
         // ui elem
         this.createUI();
 
-        const username = localStorage.getItem('username');
-        if (username) {
+        const token = localStorage.getItem('token');
+        if (token) {
             this.scene.start('LabScene');
             return;
         } 
