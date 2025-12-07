@@ -1,7 +1,6 @@
 import './style.css'
 import Phaser from 'phaser';
 
-// uvoz scen
 import UIScene from './scenes/UIScene';
 import PreloadScene from './scenes/preloadScene';
 import MenuScene from './scenes/menuScene';
@@ -10,6 +9,7 @@ import TestScene from './scenes/testScene';
 import LoginScene from './scenes/loginScene';
 import ScoreboardScene from './scenes/scoreboardScene';
 import WorkspaceScene from './scenes/workspaceScene';
+import LogicWorkspaceScene from './scenes/logicWorkspaceScene';
 
 const config = {
   type: Phaser.WEBGL,
@@ -20,15 +20,11 @@ const config = {
     roundPixels: true,
     pixelArt: false
   },
-  scale: {
-    mode: Phaser.Scale.RESIZE,
-    autoCenter: Phaser.Scale.CENTER_BOTH
-  },
   scene: [
-    // uvoz scen
     MenuScene,
     LabScene,
     WorkspaceScene,
+    LogicWorkspaceScene,
     PreloadScene,
     UIScene,
     TestScene,
