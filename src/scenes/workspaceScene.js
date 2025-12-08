@@ -128,6 +128,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         prompt:
           "V električni krog zaporedno poveži dve svetilki, ki ju priključiš na baterijo. ",
         requiredComponents: ["baterija", "svetilka", "svetilka", "žica"],
+        type: "series",
         theory: [
           "V zaporedni vezavi teče isti električni tok skozi vse svetilke. Napetost baterije se porazdeli. Če imamo primer, da ena svetilka preneha delovati, bo ta prekinila tok skozi drugo svetilko.",
         ],
@@ -137,6 +138,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         prompt:
           "V električni krog vzporedno poveži dve svetilki, ki ju priključiš na baterijo. ",
         requiredComponents: ["baterija", "svetilka", "svetilka", "žica"],
+        type: "parallel",
         theory: [
           "V vzporedni vezavi ima vsaka svetilka enako napetost kot baterija. Eletrični tok se porazdeli med svetilkami. Če ena svetilka preneha delovati, bo druga še vedno delovala.",
         ],
@@ -229,27 +231,11 @@ export default class WorkspaceScene extends Phaser.Scene {
     makeButton(width - 140, 75, "Lestvica", () =>
       this.scene.start("ScoreboardScene", { cameFromMenu: false })
     );
-    makeButton(width - 140, 125, "Preveri krog", () => this.checkCircuit());
-    makeButton(width - 140, 175, "Simulacija", () => {
-      this.connected = this.graph.simulate();
-      if (this.connected == 1) {
-        this.checkText.setStyle({ color: "#00aa00" });
-        this.checkText.setText("Električni tok je sklenjen");
-        this.sim = true;
-        return;
-      }
-      this.checkText.setStyle({ color: "#cc0000" });
-      if (this.connected == -1) {
-        this.checkText.setText("Manjka ti baterija");
-      } else if (this.connected == -2) {
-        this.checkText.setText("Stikalo je izklopljeno");
-      } else if (this.connected == 0) {
-        this.checkText.setText("Električni tok ni sklenjen");
-      }
-      this.sim = false;
-    });
-    makeButton(width - 140, 225, "Shrani krog", () => this.openSaveModal());
-    makeButton(width - 140, 275, "Naloži krog", () => this.openLoadModal());
+    makeButton(width - 140, 125, "Simulacija", () =>
+      this.runSimulationAndCheck()
+    );
+    makeButton(width - 140, 175, "Shrani krog", () => this.openSaveModal());
+    makeButton(width - 140, 225, "Naloži krog", () => this.openLoadModal());
 
     // stranska vrstica na levi
     const panelWidth = 150;
@@ -479,6 +465,81 @@ export default class WorkspaceScene extends Phaser.Scene {
     const minCeiled = Math.ceil(min);
     const maxFloored = Math.floor(max);
     return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled);
+  }
+
+  rebuildGraph() {
+    this.graph = new CircuitGraph();
+    this.placedComponents.forEach((component) => {
+      const comp = component.getData("logicComponent");
+      if (!comp) return;
+      this.updateLogicNodePositions(component);
+      this.graph.addComponent(comp);
+      if (comp.start) this.graph.addNode(comp.start);
+      if (comp.end) this.graph.addNode(comp.end);
+    });
+  }
+
+  deleteComponent(component) {
+    const idx = this.placedComponents.indexOf(component);
+    if (idx !== -1) this.placedComponents.splice(idx, 1);
+    component.destroy();
+    this.rebuildGraph();
+    this.sim = undefined;
+    this.connected = undefined;
+    this.checkText.setText("");
+  }
+
+  runSimulationAndCheck() {
+    this.connected = this.graph.simulate();
+    this.sim = this.connected === 1;
+    this.checkCircuit();
+  }
+
+  classifyBulbArrangement() {
+    const battery = this.graph.components.find((c) => c.type === "battery");
+    if (!battery) return "unknown";
+
+    const bulbs = this.graph.components.filter((c) => c.type === "bulb");
+    if (bulbs.length < 2) return "unknown";
+
+    const paths = [];
+    const dfs = (node, target, visitedComps, path) => {
+      if (!node || !target) return;
+      if (this.graph.sameNode(node, target)) {
+        paths.push([...path]);
+        return;
+      }
+
+      for (const comp of this.graph.getConnections(node)) {
+        if (!this.graph.componentConducts(comp) || visitedComps.has(comp))
+          continue;
+        visitedComps.add(comp);
+        const next = this.graph.sameNode(comp.start, node)
+          ? comp.end
+          : comp.start;
+        if (next) {
+          dfs(next, target, visitedComps, [...path, comp]);
+        }
+        visitedComps.delete(comp);
+      }
+    };
+
+    dfs(battery.start, battery.end, new Set(), []);
+    if (!paths.length) return "unknown";
+
+    const bulbCounts = paths.map(
+      (p) => p.filter((c) => c.type === "bulb").length
+    );
+
+    if (bulbCounts.some((count) => count >= 2)) return "series";
+
+    const bulbsCovered = bulbCounts.reduce((a, b) => a + b, 0);
+    const pathsWithBulb = bulbCounts.filter((c) => c > 0).length;
+    if (paths.length >= 2 && bulbsCovered >= 2 && pathsWithBulb >= 2) {
+      return "parallel";
+    }
+
+    return "unknown";
   }
 
   updateLogicNodePositions(component) {
@@ -819,7 +880,15 @@ export default class WorkspaceScene extends Phaser.Scene {
       });
     });
 
-    component.on("pointerdown", () => {
+    component.on("pointerdown", (pointer) => {
+      if (pointer?.rightButtonDown()) {
+        pointer.event?.preventDefault?.();
+        if (!component.getData("isInPanel")) {
+          this.deleteComponent(component);
+        }
+        return;
+      }
+
       if (!component.getData("isInPanel") && !component.getData("dragMoved")) {
         const currentTime = this.time.now;
         const lastClickTime = component.getData("lastClickTime");
@@ -869,6 +938,26 @@ export default class WorkspaceScene extends Phaser.Scene {
     );
     console.log("components", placedTypes);
     this.checkText.setStyle({ color: "#cc0000" });
+
+    // najprej preveri rezultat simulacije
+    if (this.sim === undefined) {
+      this.checkText.setText("Zaženi simulacijo");
+      return;
+    }
+
+    if (this.sim == false) {
+      if (this.connected == -1) {
+        this.checkText.setText("Manjka ti baterija");
+      } else if (this.connected == -2) {
+        this.checkText.setText("Stikalo je izklopljeno");
+      } else {
+        this.checkText.setText(
+          "Električni krog ni sklenjen. Preveri kako si ga sestavil"
+        );
+      }
+      return;
+    }
+
     // preverjas ce so vse komponente na mizi
     if (
       !currentChallenge.requiredComponents.every((req) =>
@@ -879,17 +968,16 @@ export default class WorkspaceScene extends Phaser.Scene {
       return;
     }
 
-    // je pravilna simulacija
-    if (this.sim == undefined) {
-      this.checkText.setText("Zaženi simlacijo");
-      return;
-    }
-
-    if (this.sim == false) {
-      this.checkText.setText(
-        "Električni krog ni sklenjen. Preveri kako si ga sestavil"
-      );
-      return;
+    if (currentChallenge.type) {
+      const arrangement = this.classifyBulbArrangement();
+      if (arrangement !== currentChallenge.type) {
+        this.checkText.setText(
+          currentChallenge.type === "series"
+            ? "Vezava mora biti zaporedna."
+            : "Vezava mora biti vzporedna."
+        );
+        return;
+      }
     }
 
     // je zaprt krog
