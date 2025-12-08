@@ -477,22 +477,102 @@ export default class WorkspaceScene extends Phaser.Scene {
       if (comp.start) this.graph.addNode(comp.start);
       if (comp.end) this.graph.addNode(comp.end);
     });
+    // Check circuit state and update bulb visuals in real-time
+    this.checkCircuitState();
+  }
+
+  checkCircuitState() {
+    // Run simulation to check if circuit is closed
+    if (this.graph.components.length > 0) {
+      this.connected = this.graph.simulate();
+      this.sim = this.connected === 1;
+    } else {
+      this.connected = undefined;
+      this.sim = undefined;
+    }
+    // Update bulb visuals based on current circuit state
+    this.updateBulbVisuals();
   }
 
   deleteComponent(component) {
     const idx = this.placedComponents.indexOf(component);
     if (idx !== -1) this.placedComponents.splice(idx, 1);
     component.destroy();
-    this.rebuildGraph();
-    this.sim = undefined;
-    this.connected = undefined;
+    this.rebuildGraph(); // This will check circuit state and update bulbs
     this.checkText.setText("");
+  }
+
+  turnOffAllBulbs() {
+    this.placedComponents.forEach((component) => {
+      const logicComp = component.getData("logicComponent");
+      if (!logicComp || logicComp.type !== "bulb") return;
+
+      const bulbImage = component.getData("bulbImage");
+      const bulbGlow = component.getData("bulbGlow");
+
+      if (bulbImage) {
+        bulbImage.clearTint();
+      }
+      if (bulbGlow) {
+        this.tweens.killTweensOf(bulbGlow);
+        bulbGlow.setVisible(false);
+        bulbGlow.setAlpha(0.3);
+      }
+    });
   }
 
   runSimulationAndCheck() {
     this.connected = this.graph.simulate();
     this.sim = this.connected === 1;
+
+    // Update bulb visuals based on circuit state
+    this.updateBulbVisuals();
+
     this.checkCircuit();
+  }
+
+  updateBulbVisuals() {
+    const isCircuitClosed = this.connected === 1;
+
+    // Find visual components for each bulb
+    this.placedComponents.forEach((component) => {
+      const logicComp = component.getData("logicComponent");
+      if (!logicComp || logicComp.type !== "bulb") return;
+
+      const bulbImage = component.getData("bulbImage");
+      const bulbGlow = component.getData("bulbGlow");
+
+      // Kill any existing glow tweens first
+      if (bulbGlow) {
+        this.tweens.killTweensOf(bulbGlow);
+      }
+
+      if (isCircuitClosed && bulbImage) {
+        // Turn on: add yellow tint and show glow
+        bulbImage.setTint(0xffff88);
+        if (bulbGlow) {
+          bulbGlow.setVisible(true);
+          bulbGlow.setAlpha(0.3);
+          // Animate glow pulsing
+          this.tweens.add({
+            targets: bulbGlow,
+            alpha: { from: 0.3, to: 0.6 },
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+          });
+        }
+      } else {
+        // Turn off: remove tint and hide glow
+        if (bulbImage) {
+          bulbImage.clearTint();
+        }
+        if (bulbGlow) {
+          bulbGlow.setVisible(false);
+          bulbGlow.setAlpha(0.3);
+        }
+      }
+    });
   }
 
   classifyBulbArrangement() {
@@ -657,12 +737,19 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.type = "bulb";
         comp.localStart = { x: -40, y: 0 };
         comp.localEnd = { x: 40, y: 0 };
+        // Create glow effect (initially hidden)
+        const glowCircle = this.add.circle(0, 0, 50, 0xffff00, 0.3);
+        glowCircle.setVisible(false);
+        component.add(glowCircle);
+        component.setData("bulbGlow", glowCircle);
+        // Then add the bulb image on top
         componentImage = this.add
           .image(0, 0, "svetilka")
           .setOrigin(0.5)
           .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData("logicComponent", comp);
+        component.setData("bulbImage", componentImage);
         break;
 
       case "stikalo-on":
@@ -849,6 +936,8 @@ export default class WorkspaceScene extends Phaser.Scene {
         );
 
         this.placedComponents.push(component);
+        // Rebuild graph and check circuit state for real-time bulb updates
+        this.rebuildGraph();
       } else if (!component.getData("isInPanel")) {
         // na mizi in se postavi na mrežo
         const snapped = this.snapToGrid(component.x, component.y);
@@ -867,6 +956,8 @@ export default class WorkspaceScene extends Phaser.Scene {
         }
 
         this.updateLogicNodePositions(component);
+        // Rebuild graph and check circuit state for real-time bulb updates
+        this.rebuildGraph();
       } else {
         // postavi se nazaj na originalno mesto
         component.x = component.getData("originalX");
@@ -905,6 +996,11 @@ export default class WorkspaceScene extends Phaser.Scene {
             angle: newRotation,
             duration: 150,
             ease: "Cubic.easeOut",
+            onComplete: () => {
+              // Update node positions after rotation and check circuit state
+              this.updateLogicNodePositions(component);
+              this.rebuildGraph();
+            },
           });
 
           component.setData("lastClickTime", 0);
