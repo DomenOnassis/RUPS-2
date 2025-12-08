@@ -33,23 +33,28 @@ export default class WorkspaceScene extends Phaser.Scene {
   create() {
     const { width, height } = this.cameras.main;
 
-    // površje mize
-    const desk = this.add.rectangle(0, 0, width, height, 0xe0c9a6).setOrigin(0);
-    const gridGraphics = this.add.graphics();
-    gridGraphics.lineStyle(1, 0x8b7355, 0.35);
-    const gridSize = 40;
-    for (let x = 0; x < width; x += gridSize) {
-      gridGraphics.beginPath();
-      gridGraphics.moveTo(x, 0);
-      gridGraphics.lineTo(x, height);
-      gridGraphics.strokePath();
-    }
-    for (let y = 0; y < height; y += gridSize) {
-      gridGraphics.beginPath();
-      gridGraphics.moveTo(0, y);
-      gridGraphics.lineTo(width, y);
-      gridGraphics.strokePath();
-    }
+    // Set up camera controls
+    this.setupCameraControls();
+
+    // Create workspace layer (will be affected by camera zoom/pan)
+    this.workspaceLayer = this.add.container(0, 0);
+    this.workspaceLayer.setDepth(0);
+
+    // površje mize (on workspace layer)
+    const desk = this.add
+      .rectangle(0, 0, width * 3, height * 3, 0xe0c9a6)
+      .setOrigin(0);
+    this.workspaceLayer.add(desk);
+
+    // Store grid graphics reference for dynamic updates
+    this.gridGraphics = this.add.graphics();
+    this.gridGraphics.setDepth(1);
+    this.workspaceLayer.add(this.gridGraphics);
+    this.updateGrid();
+
+    // Store workspace offset for panning
+    this.workspaceOffsetX = 0;
+    this.workspaceOffsetY = 0;
 
     this.infoWindow = this.add.container(0, 0);
     this.infoWindow.setDepth(1000);
@@ -237,6 +242,11 @@ export default class WorkspaceScene extends Phaser.Scene {
     makeButton(width - 140, 175, "Shrani krog", () => this.openSaveModal());
     makeButton(width - 140, 225, "Naloži krog", () => this.openLoadModal());
 
+    // Zoom buttons
+    makeButton(width - 140, 325, "+", () => this.zoomIn());
+    makeButton(width - 140, 375, "-", () => this.zoomOut());
+    makeButton(width - 140, 425, "Reset", () => this.resetZoom());
+
     // stranska vrstica na levi
     const panelWidth = 150;
     this.add.rectangle(0, 0, panelWidth, height, 0xc0c0c0).setOrigin(0);
@@ -330,6 +340,222 @@ export default class WorkspaceScene extends Phaser.Scene {
     //   });
 
     console.log(JSON.parse(localStorage.getItem("users")));
+  }
+
+  zoomIn() {
+    if (!this.workspaceLayer) return;
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2;
+    this.setZoom(
+      Math.min(this.maxZoom, this.currentZoom + 0.1),
+      centerX,
+      centerY
+    );
+  }
+
+  zoomOut() {
+    if (!this.workspaceLayer) return;
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2;
+    this.setZoom(
+      Math.max(this.minZoom, this.currentZoom - 0.1),
+      centerX,
+      centerY
+    );
+  }
+
+  resetZoom() {
+    if (!this.workspaceLayer) return;
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2;
+    this.setZoom(1.0, centerX, centerY);
+  }
+
+  setZoom(newZoom, screenX, screenY) {
+    if (!this.workspaceLayer) return;
+
+    // Calculate zoom point in workspace coordinates
+    const zoomPointX = (screenX - this.workspaceOffsetX) / this.currentZoom;
+    const zoomPointY = (screenY - this.workspaceOffsetY) / this.currentZoom;
+
+    // Update zoom
+    this.currentZoom = newZoom;
+    this.workspaceLayer.setScale(this.currentZoom);
+
+    // Adjust offset to zoom towards point
+    this.workspaceOffsetX = screenX - zoomPointX * this.currentZoom;
+    this.workspaceOffsetY = screenY - zoomPointY * this.currentZoom;
+    this.workspaceLayer.setPosition(
+      this.workspaceOffsetX,
+      this.workspaceOffsetY
+    );
+
+    this.updateGrid();
+  }
+
+  setupCameraControls() {
+    const camera = this.cameras.main;
+
+    // Set initial zoom and limits
+    this.minZoom = 0.5;
+    this.maxZoom = 2.0;
+    this.currentZoom = 1.0;
+
+    // Pan state
+    this.isPanning = false;
+    this.panStartX = 0;
+    this.panStartY = 0;
+    this.workspaceStartX = 0;
+    this.workspaceStartY = 0;
+
+    // Arrow keys for panning
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.panSpeed = 5;
+
+    // Mouse wheel zoom
+    this.input.on("wheel", (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+      // Don't zoom if over UI elements (left panel or buttons)
+      if (pointer.x < 200 || pointer.x > this.scale.width - 200) return;
+      if (pointer.isDown) return; // Don't zoom while dragging components
+
+      const zoomFactor = 0.1;
+      let newZoom = this.currentZoom;
+
+      if (deltaY > 0) {
+        newZoom = Math.max(this.minZoom, this.currentZoom - zoomFactor);
+      } else if (deltaY < 0) {
+        newZoom = Math.min(this.maxZoom, this.currentZoom + zoomFactor);
+      }
+
+      if (newZoom !== this.currentZoom) {
+        // Calculate zoom point in world coordinates
+        const zoomPointX =
+          (pointer.x - this.workspaceOffsetX) / this.currentZoom;
+        const zoomPointY =
+          (pointer.y - this.workspaceOffsetY) / this.currentZoom;
+
+        // Update zoom
+        this.currentZoom = newZoom;
+        this.workspaceLayer.setScale(this.currentZoom);
+
+        // Adjust offset to zoom towards mouse
+        this.workspaceOffsetX = pointer.x - zoomPointX * this.currentZoom;
+        this.workspaceOffsetY = pointer.y - zoomPointY * this.currentZoom;
+        this.workspaceLayer.setPosition(
+          this.workspaceOffsetX,
+          this.workspaceOffsetY
+        );
+
+        this.updateGrid();
+      }
+    });
+
+    // Middle mouse button drag for panning
+    this.input.on("pointerdown", (pointer) => {
+      if (pointer.button === 1) {
+        // Middle mouse button
+        // Don't pan if over UI elements
+        if (pointer.x < 200 || pointer.x > this.scale.width - 200) return;
+        this.isPanning = true;
+        this.panStartX = pointer.x;
+        this.panStartY = pointer.y;
+        this.workspaceStartX = this.workspaceOffsetX;
+        this.workspaceStartY = this.workspaceOffsetY;
+      }
+    });
+
+    this.input.on("pointermove", (pointer) => {
+      if (this.isPanning && pointer.button === 1) {
+        const deltaX = pointer.x - this.panStartX;
+        const deltaY = pointer.y - this.panStartY;
+        this.workspaceOffsetX = this.workspaceStartX + deltaX;
+        this.workspaceOffsetY = this.workspaceStartY + deltaY;
+        this.workspaceLayer.setPosition(
+          this.workspaceOffsetX,
+          this.workspaceOffsetY
+        );
+        this.updateGrid();
+      }
+    });
+
+    this.input.on("pointerup", (pointer) => {
+      if (pointer.button === 1) {
+        this.isPanning = false;
+      }
+    });
+  }
+
+  update() {
+    // Arrow key panning
+    if (this.cursors && this.workspaceLayer) {
+      let moved = false;
+
+      if (this.cursors.left.isDown) {
+        this.workspaceOffsetX += this.panSpeed;
+        moved = true;
+      } else if (this.cursors.right.isDown) {
+        this.workspaceOffsetX -= this.panSpeed;
+        moved = true;
+      }
+
+      if (this.cursors.up.isDown) {
+        this.workspaceOffsetY += this.panSpeed;
+        moved = true;
+      } else if (this.cursors.down.isDown) {
+        this.workspaceOffsetY -= this.panSpeed;
+        moved = true;
+      }
+
+      if (moved) {
+        this.workspaceLayer.setPosition(
+          this.workspaceOffsetX,
+          this.workspaceOffsetY
+        );
+        this.updateGrid();
+      }
+    }
+  }
+
+  updateGrid() {
+    if (!this.gridGraphics || !this.workspaceLayer) return;
+
+    const { width, height } = this.cameras.main;
+    const zoom = this.currentZoom || 1.0;
+
+    // Calculate visible area in workspace coordinates
+    const visibleLeft = -this.workspaceOffsetX / zoom;
+    const visibleTop = -this.workspaceOffsetY / zoom;
+    const visibleRight = visibleLeft + width / zoom;
+    const visibleBottom = visibleTop + height / zoom;
+
+    // Clear previous grid
+    this.gridGraphics.clear();
+
+    // Adjust grid line width based on zoom
+    const lineWidth = Math.max(0.5, 1 / zoom);
+    this.gridGraphics.lineStyle(lineWidth, 0x8b7355, 0.35);
+
+    // Calculate grid bounds
+    const startX = Math.floor(visibleLeft / this.gridSize) * this.gridSize;
+    const startY = Math.floor(visibleTop / this.gridSize) * this.gridSize;
+    const endX = Math.ceil(visibleRight / this.gridSize) * this.gridSize;
+    const endY = Math.ceil(visibleBottom / this.gridSize) * this.gridSize;
+
+    // Draw vertical lines
+    for (let x = startX; x <= endX; x += this.gridSize) {
+      this.gridGraphics.beginPath();
+      this.gridGraphics.moveTo(x, startY);
+      this.gridGraphics.lineTo(x, endY);
+      this.gridGraphics.strokePath();
+    }
+
+    // Draw horizontal lines
+    for (let y = startY; y <= endY; y += this.gridSize) {
+      this.gridGraphics.beginPath();
+      this.gridGraphics.moveTo(startX, y);
+      this.gridGraphics.lineTo(endX, y);
+      this.gridGraphics.strokePath();
+    }
   }
 
   getComponentDetails(type) {
@@ -888,8 +1114,20 @@ export default class WorkspaceScene extends Phaser.Scene {
 
     component.on("drag", (pointer, dragX, dragY) => {
       component.setData("dragMoved", true);
-      component.x = dragX;
-      component.y = dragY;
+      // If component is in workspace layer, convert screen to workspace coordinates
+      if (
+        this.workspaceLayer &&
+        !component.getData("isInPanel") &&
+        component.parentContainer === this.workspaceLayer
+      ) {
+        component.x =
+          (dragX - (this.workspaceOffsetX || 0)) / (this.currentZoom || 1);
+        component.y =
+          (dragY - (this.workspaceOffsetY || 0)) / (this.currentZoom || 1);
+      } else {
+        component.x = dragX;
+        component.y = dragY;
+      }
     });
 
     component.on("dragend", () => {
@@ -900,7 +1138,14 @@ export default class WorkspaceScene extends Phaser.Scene {
         component.destroy();
       } else if (!isInPanel && component.getData("isInPanel")) {
         // s strani na mizo
-        const snapped = this.snapToGrid(component.x, component.y);
+        // Convert screen coordinates to workspace coordinates
+        const workspaceX =
+          (component.x - (this.workspaceOffsetX || 0)) /
+          (this.currentZoom || 1);
+        const workspaceY =
+          (component.y - (this.workspaceOffsetY || 0)) /
+          (this.currentZoom || 1);
+        const snapped = this.snapToGrid(workspaceX, workspaceY);
         const aligned = this.alignToNearbyNodes(component, snapped);
 
         if (this.isPositionOccupied(aligned.x, aligned.y, component)) {
@@ -910,6 +1155,7 @@ export default class WorkspaceScene extends Phaser.Scene {
           return;
         }
 
+        // Store workspace coordinates (component will be added to workspace layer)
         component.x = aligned.x;
         component.y = aligned.y;
 
@@ -936,12 +1182,29 @@ export default class WorkspaceScene extends Phaser.Scene {
         );
 
         this.placedComponents.push(component);
+        // Add component to workspace layer if it exists
+        if (this.workspaceLayer && !component.getData("isInPanel")) {
+          this.workspaceLayer.add(component);
+        }
         // Rebuild graph and check circuit state for real-time bulb updates
         this.rebuildGraph();
       } else if (!component.getData("isInPanel")) {
         // na mizi in se postavi na mrežo
-        const snapped = this.snapToGrid(component.x, component.y);
+        // Convert screen coordinates to workspace coordinates
+        const workspaceX =
+          (component.x - (this.workspaceOffsetX || 0)) /
+          (this.currentZoom || 1);
+        const workspaceY =
+          (component.y - (this.workspaceOffsetY || 0)) /
+          (this.currentZoom || 1);
+        const snapped = this.snapToGrid(workspaceX, workspaceY);
         const aligned = this.alignToNearbyNodes(component, snapped);
+
+        // Convert aligned position back to screen coordinates for comparison
+        const alignedScreenX =
+          aligned.x * (this.currentZoom || 1) + (this.workspaceOffsetX || 0);
+        const alignedScreenY =
+          aligned.y * (this.currentZoom || 1) + (this.workspaceOffsetY || 0);
 
         if (this.isPositionOccupied(aligned.x, aligned.y, component)) {
           const previousX = component.getData("previousX") || component.x;
@@ -951,6 +1214,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         } else {
           component.setData("previousX", component.x);
           component.setData("previousY", component.y);
+          // Store workspace coordinates
           component.x = aligned.x;
           component.y = aligned.y;
         }
