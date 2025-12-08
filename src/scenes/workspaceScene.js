@@ -396,9 +396,70 @@ export default class WorkspaceScene extends Phaser.Scene {
     return { x: snappedX, y: snappedY };
   }
 
+  getNearbyNodePositions(excludeComponent = null) {
+    const nodes = [];
+    this.placedComponents.forEach((comp) => {
+      if (comp === excludeComponent) return;
+      const logic = comp.getData("logicComponent");
+      if (!logic) return;
+      if (logic.start) nodes.push({ x: logic.start.x, y: logic.start.y });
+      if (logic.end) nodes.push({ x: logic.end.x, y: logic.end.y });
+    });
+    return nodes;
+  }
+
+  alignToNearbyNodes(component, basePos) {
+    const logic = component.getData("logicComponent");
+    if (!logic) return basePos;
+
+    const theta =
+      typeof component.rotation === "number" && component.rotation
+        ? component.rotation
+        : Phaser.Math.DegToRad(component.angle || 0);
+    const cos = Math.cos(theta);
+    const sin = Math.sin(theta);
+    const rotate = (p) => ({
+      x: Math.round(p.x * cos - p.y * sin),
+      y: Math.round(p.x * sin + p.y * cos),
+    });
+
+    const offsets = [];
+    if (logic.start)
+      offsets.push({
+        key: "start",
+        offset: rotate(logic.localStart || { x: -40, y: 0 }),
+      });
+    if (logic.end)
+      offsets.push({
+        key: "end",
+        offset: rotate(logic.localEnd || { x: 40, y: 0 }),
+      });
+
+    const nearbyNodes = this.getNearbyNodePositions(component);
+    let best = { dist: Number.POSITIVE_INFINITY, pos: basePos };
+    const snapRadius = this.gridSize / 2;
+
+    offsets.forEach(({ offset }) => {
+      const worldPos = { x: basePos.x + offset.x, y: basePos.y + offset.y };
+      nearbyNodes.forEach((node) => {
+        const dx = node.x - worldPos.x;
+        const dy = node.y - worldPos.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < best.dist && dist <= snapRadius) {
+          best = {
+            dist,
+            pos: { x: node.x - offset.x, y: node.y - offset.y },
+          };
+        }
+      });
+    });
+
+    return best.pos;
+  }
+
   isPositionOccupied(x, y, excludeComponent = null) {
-    const componentSize = 80;
-    const tolerance = 10;
+    const componentSize = this.gridSize; // allow neighbors on adjacent grid cells
+    const tolerance = 5;
 
     for (let component of this.placedComponents) {
       if (component === excludeComponent || component.getData("isInPanel"))
@@ -669,7 +730,6 @@ export default class WorkspaceScene extends Phaser.Scene {
       component.setData("originalX", x);
       component.setData("originalY", y);
     }
-    
 
     this.input.setDraggable(component);
 
@@ -693,16 +753,17 @@ export default class WorkspaceScene extends Phaser.Scene {
       } else if (!isInPanel && component.getData("isInPanel")) {
         // s strani na mizo
         const snapped = this.snapToGrid(component.x, component.y);
+        const aligned = this.alignToNearbyNodes(component, snapped);
 
-        if (this.isPositionOccupied(snapped.x, snapped.y, component)) {
+        if (this.isPositionOccupied(aligned.x, aligned.y, component)) {
           component.x = component.getData("originalX");
           component.y = component.getData("originalY");
           component.setData("isDragging", false);
           return;
         }
 
-        component.x = snapped.x;
-        component.y = snapped.y;
+        component.x = aligned.x;
+        component.y = aligned.y;
 
         const comp = component.getData("logicComponent");
         if (comp) {
@@ -730,8 +791,9 @@ export default class WorkspaceScene extends Phaser.Scene {
       } else if (!component.getData("isInPanel")) {
         // na mizi in se postavi na mrežo
         const snapped = this.snapToGrid(component.x, component.y);
+        const aligned = this.alignToNearbyNodes(component, snapped);
 
-        if (this.isPositionOccupied(snapped.x, snapped.y, component)) {
+        if (this.isPositionOccupied(aligned.x, aligned.y, component)) {
           const previousX = component.getData("previousX") || component.x;
           const previousY = component.getData("previousY") || component.y;
           component.x = previousX;
@@ -739,8 +801,8 @@ export default class WorkspaceScene extends Phaser.Scene {
         } else {
           component.setData("previousX", component.x);
           component.setData("previousY", component.y);
-          component.x = snapped.x;
-          component.y = snapped.y;
+          component.x = aligned.x;
+          component.y = aligned.y;
         }
 
         this.updateLogicNodePositions(component);
@@ -798,7 +860,6 @@ export default class WorkspaceScene extends Phaser.Scene {
       component.setScale(1);
     });
     return component;
-
   }
 
   checkCircuit() {
@@ -1083,7 +1144,7 @@ export default class WorkspaceScene extends Phaser.Scene {
               this.fetchAndLoadCircuit(circuit.id);
               this.closeLoadModal();
             });
-              this.loadCircuitTexts.push(entry);
+          this.loadCircuitTexts.push(entry);
           y += 40;
         });
       });
@@ -1121,29 +1182,27 @@ export default class WorkspaceScene extends Phaser.Scene {
     // ostali tekstovni elementi se uničijo avtomatsko, ker niso shranjeni v array
   }
   loadCircuit(components) {
-  
+    components.forEach((item) => {
+      const component = this.createComponent(
+        item.x,
+        item.y,
+        item.type,
+        null,
+        true
+      );
 
-   components.forEach((item) => {
-        const component = this.createComponent(
-            item.x,
-            item.y,
-            item.type,
-            null,
-            true
-        );
+      if (!component) return;
 
-        if (!component) return;
+      component.x = item.x;
+      component.y = item.y;
 
-        component.x = item.x;
-        component.y = item.y;
+      if (item.rotation) {
+        component.setData("rotation", item.rotation);
+        component.angle = item.rotation;
+      }
 
-        if (item.rotation) {
-            component.setData("rotation", item.rotation);
-            component.angle = item.rotation;
-        }
-
-        component.setData("isInPanel", false);
-        this.placedComponents.push(component);
+      component.setData("isInPanel", false);
+      this.placedComponents.push(component);
     });
   }
 }
