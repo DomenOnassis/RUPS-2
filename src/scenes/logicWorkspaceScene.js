@@ -33,14 +33,14 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const components = [
-      { type: 'and', y: 80 },
-      { type: 'or', y: 160 },
-      { type: 'not', y: 240 },
-      { type: 'nand', y: 320 },
-      { type: 'nor', y: 400 },
-      { type: 'xor', y: 480 },
-      { type: 'xnor', y: 560 },
-      { type: 'wire', y: 640 }
+      { type: 'and', y: 110 },
+      { type: 'or', y: 200 },
+      { type: 'not', y: 290 },
+      { type: 'nand', y: 380 },
+      { type: 'nor', y: 470 },
+      { type: 'xor', y: 560 },
+      { type: 'xnor', y: 650 },
+      { type: 'wire', y: 740 }
     ];
 
     components.forEach(comp => {
@@ -116,7 +116,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     
     const isInPanel = x < 200;
     const displaySize = isInPanel ? 80 : (type === 'wire' ? 80 : 160);
-    const componentSize = type === 'wire' ? 80 : 160;
+    const interactiveSize = type === 'wire' ? 80 : 160;
     
     const componentImage = this.add.image(0, 0, type)
       .setOrigin(0.5)
@@ -133,9 +133,8 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     component.setData('dragMoved', false);
     component.setData('lastClickTime', 0);
 
-    component.setSize(displaySize, displaySize);
-    const hitArea = new Phaser.Geom.Rectangle(-displaySize/2, -displaySize/2, displaySize, displaySize);
-    component.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { draggable: true, useHandCursor: true });
+    component.setSize(interactiveSize, interactiveSize);
+    component.setInteractive({ draggable: true, useHandCursor: true });
 
     this.input.setDraggable(component);
 
@@ -171,12 +170,6 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         
         const newDisplaySize = type === 'wire' ? 80 : 160;
         componentImage.setDisplaySize(newDisplaySize, newDisplaySize);
-        component.setSize(newDisplaySize, newDisplaySize);
-        
-        component.removeInteractive();
-        const newHitArea = new Phaser.Geom.Rectangle(-newDisplaySize/2, -newDisplaySize/2, newDisplaySize, newDisplaySize);
-        component.setInteractive(newHitArea, Phaser.Geom.Rectangle.Contains, { draggable: true, useHandCursor: true });
-        this.input.setDraggable(component);
 
         this.createComponent(
           component.getData('originalX'),
