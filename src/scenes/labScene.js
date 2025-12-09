@@ -22,13 +22,10 @@ export default class LabScene extends Phaser.Scene {
   create() {
     const { width, height } = this.cameras.main;
     
-    // ozadje laboratorija
     this.add.rectangle(0, 0, width, height, 0xf0f0f0).setOrigin(0);
     
-    // stena
     this.add.rectangle(0, 0, width, height - 150, 0xe8e8e8).setOrigin(0);
     
-    // tla
     this.add.rectangle(0, height - 150, width, 150, 0xd4c4a8).setOrigin(0);
     
     // miza
@@ -37,13 +34,9 @@ export default class LabScene extends Phaser.Scene {
     const tableWidth = 500;
     const tableHeight = 250;
     
-    // miza (del, ki se klikne)
     const tableTop = this.add.rectangle(tableX, tableY, tableWidth, 30, 0x8b4513).setOrigin(0.5);
     
-    // delovna površina mize
     const tableSurface = this.add.rectangle(tableX, tableY + 15, tableWidth - 30, tableHeight - 30, 0xa0826d).setOrigin(0.5, 0);
-    
-    // mreža
     const gridGraphics = this.add.graphics();
     gridGraphics.lineStyle(1, 0x8b7355, 0.3);
     const gridSize = 30;
@@ -65,13 +58,11 @@ export default class LabScene extends Phaser.Scene {
       gridGraphics.strokePath();
     }
     
-    // nogice mize
     const legWidth = 20;
     const legHeight = 150;
     this.add.rectangle(tableX - tableWidth/2 + 40, tableY + tableHeight/2 + 20, legWidth, legHeight, 0x654321);
     this.add.rectangle(tableX + tableWidth/2 - 40, tableY + tableHeight/2 + 20, legWidth, legHeight, 0x654321);
     
-    // interaktivnost mize
     const interactiveZone = this.add.zone(tableX, tableY + tableHeight/2, tableWidth, tableHeight)
       .setInteractive({ useHandCursor: true });
     
@@ -83,7 +74,6 @@ export default class LabScene extends Phaser.Scene {
       padding: { x: 20, y: 10 }
     }).setOrigin(0.5);
     
-    // animacija besedila
     this.tweens.add({
       targets: instruction,
       alpha: 0.5,
@@ -92,7 +82,6 @@ export default class LabScene extends Phaser.Scene {
       repeat: -1
     });
     
-    // zoom na mizo
     interactiveZone.on('pointerdown', () => {
       this.showWorkspaceSelectionModal();
     });
@@ -178,10 +167,6 @@ export default class LabScene extends Phaser.Scene {
         .on('pointerdown', () => {
             this.scene.start('ScoreboardScene', {cameFromMenu: true});
         });
-
-    // this.input.keyboard.on('keydown-ESC', () => {
-    //     this.scene.start('MenuScene');
-    // });
   }
 
   showWorkspaceSelectionModal() {
@@ -423,11 +408,7 @@ export default class LabScene extends Phaser.Scene {
       this.cameras.main.fade(300, 0, 0, 0);
       this.time.delayedCall(300, () => {
         localStorage.setItem('mode', 'challenge');
-        if (workspaceType === 'electric') {
-          this.scene.start('WorkspaceScene');
-        } else {
-          this.scene.start('LogicWorkspaceScene');
-        }
+        this.scene.start('ChallengeSelectionScene', { workspaceType });
       });
     });
     

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 from database import get_session
 from routers.auth import get_current_user
-
+from models.challenge import Challenge
 from schemas.challenge import AttemptCreate, AttemptRead, ChallengeCreate, ProgressCreate, ProgressRead
 from crud.challenge import (
     create_challenge,
@@ -29,7 +29,16 @@ def create_challenge_endpoint(
 def list_challenges(session: Session = Depends(get_session)):
     return get_all_challenges(session)
 
-# progress
+@router.get("/by-workspace/{workspace_type}", summary="Get challenges by workspace type")
+def get_challenges_by_workspace(
+    workspace_type: str,
+    session: Session = Depends(get_session)
+):
+    challenges = session.query(Challenge).filter(
+        Challenge.workspace_type == workspace_type
+    ).order_by(Challenge.difficulty).all()
+    return challenges
+
 @router.get("/progress", response_model=ProgressRead, summary="Get user's progress")
 def get_progress_endpoint(
     session: Session = Depends(get_session),
@@ -52,8 +61,6 @@ def mark_complete_endpoint(
 
     return mark_challenge_complete(session, user.id, challenge_id)
 
-
-# attempts
 @router.post("/attempt", response_model=AttemptRead, status_code=status.HTTP_201_CREATED)
 def save_attempt_endpoint(
     body: AttemptCreate,
@@ -84,10 +91,6 @@ def delete_attempt_endpoint(
     if not ok:
         raise HTTPException(status_code=404, detail="Attempt not found")
     return {"deleted": True}
-
-
-
-
 
 @router.get("/{challenge_id}", summary="Get challenge by ID")
 def get_challenge_endpoint(
