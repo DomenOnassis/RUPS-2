@@ -32,7 +32,24 @@ export default class WorkspaceScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.cameras.main;
+    this.undoStack = [];
+    this.redoStack = [];
+    this._actionSeq = 0;
+    // za brisanje z Delete
+    this._hoveredComponent = null;
 
+    // listenerji za tipkovnico
+    this.input.keyboard.on("keydown-Z", (e) => {
+      if (e.ctrlKey) this.undo();
+    });
+    this.input.keyboard.on("keydown-Y", (e) => {
+      if (e.ctrlKey) this.redo();
+    });
+    this.input.keyboard.on("keydown-DELETE", () => {
+      if (this._hoveredComponent) {
+        this.deleteComponent(this._hoveredComponent, true);
+      }
+    });
     // Set up camera controls
     this.setupCameraControls();
 
@@ -720,12 +737,31 @@ export default class WorkspaceScene extends Phaser.Scene {
     this.updateBulbVisuals();
   }
 
-  deleteComponent(component) {
-    const idx = this.placedComponents.indexOf(component);
-    if (idx !== -1) this.placedComponents.splice(idx, 1);
+  deleteComponent(component, addToUndo = true) {
+    if (!component) return;
+
+    const snapshot = {
+      uid: component.getData("uid"),
+      type: component.getData("type"),
+      x: component.x,
+      y: component.y,
+      rotation: component.getData("rotation") || 0,
+    };
+
+    this.placedComponents = this.placedComponents.filter(
+      (c) => c !== component
+    );
     component.destroy();
-    this.rebuildGraph(); // This will check circuit state and update bulbs
-    this.checkText.setText("");
+
+    if (addToUndo) {
+      this.pushAction({
+        type: "remove",
+        snapshot,
+        compRef: null,
+      });
+    }
+
+    this.rebuildGraph();
   }
 
   turnOffAllBulbs() {
@@ -906,6 +942,84 @@ export default class WorkspaceScene extends Phaser.Scene {
       endDot.y = comp.end.y;
     }
   }
+  pushAction(action) {
+    if (!action) return;
+    action.seq = ++this._actionSeq;
+    this.undoStack.push(action);
+
+    if (this.undoStack.length > 100) {
+      this.undoStack.shift();
+    }
+
+    if (action.type !== "undo" && action.type !== "redo") {
+      this.redoStack = [];
+    }
+  }
+
+  undo() {
+    if (!this.undoStack.length) return;
+
+    const action = this.undoStack.pop();
+    this.redoStack.push(action);
+
+    if (action.type === "add") {
+      this.deleteComponent(action.compRef, false);
+    } else if (action.type === "remove") {
+      const restored = this.recreateComponentFromSnapshot(action.snapshot);
+      action.compRef = restored;
+    } else if (action.type === "move") {
+      action.compRef.x = action.from.x;
+      action.compRef.y = action.from.y;
+      this.updateLogicNodePositions(action.compRef);
+    } else if (action.type === "rotate") {
+      action.compRef.setData("rotation", action.from);
+      action.compRef.angle = action.from;
+      this.updateLogicNodePositions(action.compRef);
+    }
+
+    this.rebuildGraph();
+  }
+
+  redo() {
+    if (!this.redoStack.length) return;
+
+    const action = this.redoStack.pop();
+    this.undoStack.push(action);
+
+    if (action.type === "add") {
+      const restored = this.recreateComponentFromSnapshot(action.snapshot);
+      action.compRef = restored;
+    } else if (action.type === "remove") {
+      this.deleteComponent(action.compRef, false);
+    } else if (action.type === "move") {
+      action.compRef.x = action.to.x;
+      action.compRef.y = action.to.y;
+      this.updateLogicNodePositions(action.compRef);
+    } else if (action.type === "rotate") {
+      action.compRef.setData("rotation", action.to);
+      action.compRef.angle = action.to;
+      this.updateLogicNodePositions(action.compRef);
+    }
+
+    this.rebuildGraph();
+  }
+  recreateComponentFromSnapshot(s) {
+    const comp = this.createComponent(s.x, s.y, s.type, null, true);
+    if (!comp) return null;
+
+    comp.x = s.x;
+    comp.y = s.y;
+    comp.setData("rotation", s.rotation);
+    comp.angle = s.rotation;
+    comp.setData("isInPanel", false);
+
+    this.placedComponents.push(comp);
+    this.updateLogicNodePositions(comp);
+if (this.workspaceLayer) {
+    this.workspaceLayer.add(comp);
+  }
+    return comp;
+  }
 
   createComponent(x, y, type, color, fromLoad = false) {
     const component = this.add.container(x, y);
@@ -1052,7 +1166,17 @@ export default class WorkspaceScene extends Phaser.Scene {
         component.setData("logicComponent", null);
         break;
     }
+    if (typeof id !== "undefined") component.setData("uid", id);
 
+    // za delete key – sledimo hover komponenti
+    component.on("pointerover", () => {
+      this._hoveredComponent = component;
+    });
+    component.on("pointerout", () => {
+      if (this._hoveredComponent === component) {
+        this._hoveredComponent = null;
+      }
+    });
     component.on("pointerover", () => {
       if (component.getData("isInPanel")) {
         // prikaži info okno
@@ -1110,6 +1234,9 @@ export default class WorkspaceScene extends Phaser.Scene {
     component.on("dragstart", () => {
       component.setData("isDragging", true);
       component.setData("dragMoved", false);
+      if (!component.getData("isInPanel")) {
+        component.setData("startPos", { x: component.x, y: component.y });
+      }
     });
 
     component.on("drag", (pointer, dragX, dragY) => {
@@ -1182,6 +1309,19 @@ export default class WorkspaceScene extends Phaser.Scene {
         );
 
         this.placedComponents.push(component);
+
+        this.pushAction({
+          type: "add",
+          compRef: component,
+          snapshot: {
+            uid: component.getData("uid"),
+            type: component.getData("type"),
+            x: component.x,
+            y: component.y,
+            rotation: component.getData("rotation") || 0,
+          },
+        });
+
         // Add component to workspace layer if it exists
         if (this.workspaceLayer && !component.getData("isInPanel")) {
           this.workspaceLayer.add(component);
@@ -1197,30 +1337,41 @@ export default class WorkspaceScene extends Phaser.Scene {
         const workspaceY =
           (component.y - (this.workspaceOffsetY || 0)) /
           (this.currentZoom || 1);
+
         const snapped = this.snapToGrid(workspaceX, workspaceY);
         const aligned = this.alignToNearbyNodes(component, snapped);
 
-        // Convert aligned position back to screen coordinates for comparison
-        const alignedScreenX =
-          aligned.x * (this.currentZoom || 1) + (this.workspaceOffsetX || 0);
-        const alignedScreenY =
-          aligned.y * (this.currentZoom || 1) + (this.workspaceOffsetY || 0);
-
         if (this.isPositionOccupied(aligned.x, aligned.y, component)) {
-          const previousX = component.getData("previousX") || component.x;
-          const previousY = component.getData("previousY") || component.y;
-          component.x = previousX;
-          component.y = previousY;
+          const start = component.getData("startPos") || {
+            x: component.x,
+            y: component.y,
+          };
+          component.x = start.x;
+          component.y = start.y;
         } else {
-          component.setData("previousX", component.x);
-          component.setData("previousY", component.y);
-          // Store workspace coordinates
+          const start = component.getData("startPos") || {
+            x: component.x,
+            y: component.y,
+          };
+          const oldX = component.x;
+          const oldY = component.y;
+
           component.x = aligned.x;
           component.y = aligned.y;
+
+          // PATCH >>> PUSH MOVE
+          if (start.x !== component.x || start.y !== component.y) {
+            this.pushAction({
+              type: "move",
+              compRef: component,
+              uid: component.getData("uid"),
+              from: { x: start.x, y: start.y },
+              to: { x: component.x, y: component.y },
+            });
+          }
         }
 
         this.updateLogicNodePositions(component);
-        // Rebuild graph and check circuit state for real-time bulb updates
         this.rebuildGraph();
       } else {
         // postavi se nazaj na originalno mesto
@@ -1252,6 +1403,13 @@ export default class WorkspaceScene extends Phaser.Scene {
         if (timeDiff < 300) {
           const currentRotation = component.getData("rotation");
           const newRotation = (currentRotation + 90) % 360;
+          this.pushAction({
+            type: "rotate",
+            compRef: component,
+            uid: component.getData("uid"),
+            from: currentRotation,
+            to: newRotation,
+          });
           component.setData("rotation", newRotation);
           component.setData("isRotated", !component.getData("isRotated"));
 
