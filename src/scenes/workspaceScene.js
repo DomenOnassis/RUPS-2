@@ -1247,10 +1247,12 @@ if (this.workspaceLayer) {
         !component.getData("isInPanel") &&
         component.parentContainer === this.workspaceLayer
       ) {
-        component.x =
-          (dragX - (this.workspaceOffsetX || 0)) / (this.currentZoom || 1);
-        component.y =
-          (dragY - (this.workspaceOffsetY || 0)) / (this.currentZoom || 1);
+        const worldX = pointer.worldX;
+        const worldY = pointer.worldY;
+        const localX = (worldX - this.workspaceOffsetX) / this.currentZoom;
+        const localY = (worldY - this.workspaceOffsetY) / this.currentZoom;
+        component.x = localX;
+        component.y = localY;
       } else {
         component.x = dragX;
         component.y = dragY;
@@ -1265,14 +1267,7 @@ if (this.workspaceLayer) {
         component.destroy();
       } else if (!isInPanel && component.getData("isInPanel")) {
         // s strani na mizo
-        // Convert screen coordinates to workspace coordinates
-        const workspaceX =
-          (component.x - (this.workspaceOffsetX || 0)) /
-          (this.currentZoom || 1);
-        const workspaceY =
-          (component.y - (this.workspaceOffsetY || 0)) /
-          (this.currentZoom || 1);
-        const snapped = this.snapToGrid(workspaceX, workspaceY);
+        const snapped = this.snapToGrid(component.x, component.y);
         const aligned = this.alignToNearbyNodes(component, snapped);
 
         if (this.isPositionOccupied(aligned.x, aligned.y, component)) {
@@ -1330,15 +1325,7 @@ if (this.workspaceLayer) {
         this.rebuildGraph();
       } else if (!component.getData("isInPanel")) {
         // na mizi in se postavi na mrežo
-        // Convert screen coordinates to workspace coordinates
-        const workspaceX =
-          (component.x - (this.workspaceOffsetX || 0)) /
-          (this.currentZoom || 1);
-        const workspaceY =
-          (component.y - (this.workspaceOffsetY || 0)) /
-          (this.currentZoom || 1);
-
-        const snapped = this.snapToGrid(workspaceX, workspaceY);
+        const snapped = this.snapToGrid(component.x, component.y);
         const aligned = this.alignToNearbyNodes(component, snapped);
 
         if (this.isPositionOccupied(aligned.x, aligned.y, component)) {
@@ -1349,13 +1336,8 @@ if (this.workspaceLayer) {
           component.x = start.x;
           component.y = start.y;
         } else {
-          const start = component.getData("startPos") || {
-            x: component.x,
-            y: component.y,
-          };
-          const oldX = component.x;
-          const oldY = component.y;
-
+          component.setData("previousX", component.x);
+          component.setData("previousY", component.y);
           component.x = aligned.x;
           component.y = aligned.y;
 
