@@ -12,6 +12,7 @@ The project was originaly created for intended use of elementary school students
 - Inconsistent sizes and lines of pieces (redraw)
 - Update style for consistency
 - The current implementation doesnt support series or parallel circuit logic, no voltage division and no current computation
+
 ## New Project Components
 ### Backend
 A backend will be added to the project for user authentication, and saving created constructs. (Python)

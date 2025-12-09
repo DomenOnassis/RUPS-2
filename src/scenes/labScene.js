@@ -75,7 +75,7 @@ export default class LabScene extends Phaser.Scene {
     const interactiveZone = this.add.zone(tableX, tableY + tableHeight/2, tableWidth, tableHeight)
       .setInteractive({ useHandCursor: true });
     
-    const instruction = this.add.text(tableX, tableY - 80, 'Klikni na mizo in začni graditi svoj električni krog!', {
+    const instruction = this.add.text(tableX, tableY - 80, 'Click on the table to choose your workspace!', {
       fontSize: '24px',
       color: '#333',
       fontStyle: 'bold',
@@ -94,10 +94,7 @@ export default class LabScene extends Phaser.Scene {
     
     // zoom na mizo
     interactiveZone.on('pointerdown', () => {
-      this.cameras.main.fade(300, 0, 0, 0);
-      this.time.delayedCall(300, () => {
-        this.scene.start('WorkspaceScene');
-      });
+      this.showWorkspaceSelectionModal();
     });
     
     interactiveZone.on('pointerover', () => {
@@ -109,37 +106,31 @@ export default class LabScene extends Phaser.Scene {
     });
 
     const username = localStorage.getItem('username');
-    const pfp = localStorage.getItem('profilePic');
+    const token = localStorage.getItem('token');
 
-    // avvatar
     const avatarX = 230;
     const avatarY = 55;
     const avatarRadius = 30;
     const borderThickness = 4;
 
-    // zunanji siv krog (rob)
     const borderCircle = this.add.circle(avatarX, avatarY, avatarRadius + borderThickness, 0xcccccc);
 
-    // notranji bel krog (ozadje za avatar)
     const innerCircle = this.add.circle(avatarX, avatarY, avatarRadius, 0xffffff);
 
-    // slika avatarja
-    const avatarImage = this.add.image(avatarX, avatarY, pfp)
+    const avatarImage = this.add.image(avatarX, avatarY, 'avatar1')
         .setDisplaySize(avatarRadius * 2, avatarRadius * 2);
 
-    // maska, da je slika samo znotraj notranjega kroga
     const mask = innerCircle.createGeometryMask();
     avatarImage.setMask(mask);
 
-    // pozdravno besedilo
-    this.add.text(avatarX + 60, avatarY - 10, `Dobrodošel v laboratoriju, uporabnik ${username}!`, {
+    this.add.text(avatarX + 60, avatarY - 10, `Welcome to the lab, ${username}!`, {
         fontSize: '22px',
         color: '#222',
         fontStyle: 'bold'
     });
 
 
-    const logoutButton = this.add.text(40, 30, '↩ Odjavi se', {
+    const logoutButton = this.add.text(40, 30, '↩ Logout', {
         fontFamily: 'Arial',
         fontSize: '20px',
         color: '#0066ff',
@@ -150,7 +141,10 @@ export default class LabScene extends Phaser.Scene {
         .on('pointerover', () => logoutButton.setStyle({ color: '#0044cc' }))
         .on('pointerout', () => logoutButton.setStyle({ color: '#0066ff' }))
         .on('pointerdown', () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('email');
             localStorage.removeItem('username');
+            localStorage.removeItem('name');
             this.scene.start('MenuScene');
         });
 
@@ -160,12 +154,11 @@ export default class LabScene extends Phaser.Scene {
     const rightMargin = 60;
     const topMargin = 40;
 
-    // za scoreboard
     const scoreButtonBg = this.add.graphics();
     scoreButtonBg.fillStyle(0x3399ff, 1);
     scoreButtonBg.fillRoundedRect(width - buttonWidth - rightMargin, topMargin, buttonWidth, buttonHeight, cornerRadius);
 
-    const scoreButton = this.add.text(width - buttonWidth / 2 - rightMargin, topMargin + buttonHeight / 2, 'Lestvica', {
+    const scoreButton = this.add.text(width - buttonWidth / 2 - rightMargin, topMargin + buttonHeight / 2, 'Leaderboard', {
         fontFamily: 'Arial',
         fontSize: '20px',
         color: '#ffffff'
@@ -189,8 +182,133 @@ export default class LabScene extends Phaser.Scene {
     // this.input.keyboard.on('keydown-ESC', () => {
     //     this.scene.start('MenuScene');
     // });
+  }
 
-    //console.log(`${localStorage.getItem('username')}`);
-    console.log(JSON.parse(localStorage.getItem('users')));
+  showWorkspaceSelectionModal() {
+    const { width, height } = this.cameras.main;
+    
+    const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.7)
+      .setOrigin(0)
+      .setInteractive()
+      .setDepth(1000);
+    
+    const modalWidth = 600;
+    const modalHeight = 400;
+    const modal = this.add.rectangle(width / 2, height / 2, modalWidth, modalHeight, 0xffffff)
+      .setOrigin(0.5)
+      .setDepth(1001);
+    
+    const modalBorder = this.add.graphics();
+    modalBorder.lineStyle(3, 0x3399ff, 1);
+    modalBorder.strokeRoundedRect(
+      width / 2 - modalWidth / 2,
+      height / 2 - modalHeight / 2,
+      modalWidth,
+      modalHeight,
+      10
+    );
+    modalBorder.setDepth(1002);
+    
+    const title = this.add.text(width / 2, height / 2 - 140, 'Choose Your Workspace', {
+      fontSize: '32px',
+      color: '#333',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(1003);
+    
+    const electricBtnY = height / 2 - 40;
+    const electricBtnBg = this.add.graphics();
+    electricBtnBg.fillStyle(0x3399ff, 1);
+    electricBtnBg.fillRoundedRect(width / 2 - 220, electricBtnY - 30, 440, 70, 10);
+    electricBtnBg.setDepth(1003);
+    
+    const electricBtn = this.add.text(width / 2, electricBtnY, 'Electric Circuit Workspace', {
+      fontSize: '24px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(1004).setInteractive({ useHandCursor: true });
+    
+    const electricDesc = this.add.text(width / 2, electricBtnY + 25, 'Build circuits with batteries, resistors, bulbs, and switches', {
+      fontSize: '14px',
+      color: '#ffffff'
+    }).setOrigin(0.5).setDepth(1004);
+    
+    const logicBtnY = height / 2 + 80;
+    const logicBtnBg = this.add.graphics();
+    logicBtnBg.fillStyle(0xff9933, 1);
+    logicBtnBg.fillRoundedRect(width / 2 - 220, logicBtnY - 30, 440, 70, 10);
+    logicBtnBg.setDepth(1003);
+    
+    const logicBtn = this.add.text(width / 2, logicBtnY, 'Logic Circuit Workspace', {
+      fontSize: '24px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(1004).setInteractive({ useHandCursor: true });
+    
+    const logicDesc = this.add.text(width / 2, logicBtnY + 25, 'Build logic circuits with AND, OR, NOT, and other logic gates', {
+      fontSize: '14px',
+      color: '#ffffff'
+    }).setOrigin(0.5).setDepth(1004);
+    
+    const closeBtn = this.add.text(width / 2 + 260, height / 2 - 185, '✕', {
+      fontSize: '30px',
+      color: '#666'
+    }).setOrigin(0.5).setDepth(1005).setInteractive({ useHandCursor: true });
+    
+    electricBtn.on('pointerover', () => {
+      electricBtnBg.clear();
+      electricBtnBg.fillStyle(0x0f5cad, 1);
+      electricBtnBg.fillRoundedRect(width / 2 - 220, electricBtnY - 30, 440, 70, 10);
+    });
+    
+    electricBtn.on('pointerout', () => {
+      electricBtnBg.clear();
+      electricBtnBg.fillStyle(0x3399ff, 1);
+      electricBtnBg.fillRoundedRect(width / 2 - 220, electricBtnY - 30, 440, 70, 10);
+    });
+    
+    electricBtn.on('pointerdown', () => {
+      this.cameras.main.fade(300, 0, 0, 0);
+      this.time.delayedCall(300, () => {
+        this.scene.start('WorkspaceScene');
+      });
+    });
+    
+    logicBtn.on('pointerover', () => {
+      logicBtnBg.clear();
+      logicBtnBg.fillStyle(0xcc7722, 1);
+      logicBtnBg.fillRoundedRect(width / 2 - 220, logicBtnY - 30, 440, 70, 10);
+    });
+    
+    logicBtn.on('pointerout', () => {
+      logicBtnBg.clear();
+      logicBtnBg.fillStyle(0xff9933, 1);
+      logicBtnBg.fillRoundedRect(width / 2 - 220, logicBtnY - 30, 440, 70, 10);
+    });
+    
+    logicBtn.on('pointerdown', () => {
+      this.cameras.main.fade(300, 0, 0, 0);
+      this.time.delayedCall(300, () => {
+        this.scene.start('LogicWorkspaceScene');
+      });
+    });
+    
+    const closeModal = () => {
+      overlay.destroy();
+      modal.destroy();
+      modalBorder.destroy();
+      title.destroy();
+      electricBtn.destroy();
+      electricDesc.destroy();
+      electricBtnBg.destroy();
+      logicBtn.destroy();
+      logicDesc.destroy();
+      logicBtnBg.destroy();
+      closeBtn.destroy();
+    };
+    
+    closeBtn.on('pointerover', () => closeBtn.setStyle({ color: '#333' }));
+    closeBtn.on('pointerout', () => closeBtn.setStyle({ color: '#666' }));
+    closeBtn.on('pointerdown', closeModal);
+    overlay.on('pointerdown', closeModal);
   }
 }
