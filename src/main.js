@@ -10,6 +10,7 @@ import LoginScene from './scenes/loginScene';
 import ScoreboardScene from './scenes/scoreboardScene';
 import WorkspaceScene from './scenes/workspaceScene';
 import LogicWorkspaceScene from './scenes/logicWorkspaceScene';
+import ChallengeSelectionScene from './scenes/challengeSelectionScene';
 
 const config = {
   type: Phaser.WEBGL,
@@ -25,6 +26,7 @@ const config = {
     LabScene,
     WorkspaceScene,
     LogicWorkspaceScene,
+    ChallengeSelectionScene,
     PreloadScene,
     UIScene,
     TestScene,
@@ -44,6 +46,5 @@ const config = {
   }
 };
 
-// inicializacija igre
 const game = new Phaser.Game(config);
 export default game;

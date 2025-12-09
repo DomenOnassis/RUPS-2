@@ -5,6 +5,9 @@ class Challenge(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
     description: str
+    workspace_type: str
+    difficulty: int 
+    requirements: dict = Field(sa_column=Column(JSON))
 
 
 class ChallengeProgress(SQLModel, table=True):
@@ -19,4 +22,3 @@ class ChallengeAttempt(SQLModel, table=True):
     user_id: int
     challenge_id: int
     data: dict = Field(sa_column=Column(JSON))
-

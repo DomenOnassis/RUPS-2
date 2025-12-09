@@ -4,15 +4,21 @@ from typing import Any, Dict, List
 class ChallengeCreate(BaseModel):
     title: str
     description: str
+    workspace_type: str
+    difficulty: int
+    requirements: Dict[str, Any] 
 
 class ChallengeRead(BaseModel):
     id: int
     title: str
     description: str
+    workspace_type: str
+    difficulty: int
+    requirements: Dict[str, Any]
 
 class AttemptCreate(BaseModel):
     challenge_id: int
-    data: Dict[str, Any]  # arbitrary JSON structure (components etc.)
+    data: Dict[str, Any]
 
 
 class AttemptRead(BaseModel):
@@ -25,5 +31,4 @@ class ProgressCreate(BaseModel):
     challenge_ids: List[int]
 
 class ProgressRead(BaseModel):
-    completed: List[int]   # list of completed challenge IDs
-
+    completed: List[int]

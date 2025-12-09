@@ -16,43 +16,42 @@ export default class WorkspaceScene extends Phaser.Scene {
   init() {
     const savedIndex = localStorage.getItem("currentChallengeIndex");
     this.currentChallengeIndex = savedIndex !== null ? parseInt(savedIndex) : 0;
+    
+    this.selectedChallengeId = localStorage.getItem("selectedChallengeId");
+    this.selectedChallengeTitle = localStorage.getItem("selectedChallengeTitle");
+    this.mode = localStorage.getItem("mode") || "sandbox";
   }
 
   preload() {
     this.graph = new CircuitGraph();
-    this.load.image("baterija", "src/components/battery.png");
-    this.load.image("upor", "src/components/resistor.png");
-    this.load.image("svetilka", "src/components/lamp.png");
-    this.load.image("stikalo-on", "src/components/switch-on.png");
-    this.load.image("stikalo-off", "src/components/switch-off.png");
-    this.load.image("žica", "src/components/wire.png");
-    this.load.image("ampermeter", "src/components/ammeter.png");
+    this.load.image("battery", "src/components/battery.png");
+    this.load.image("resistor", "src/components/resistor.png");
+    this.load.image("bulb", "src/components/lamp.png");
+    this.load.image("switch-on", "src/components/switch-on.png");
+    this.load.image("switch-off", "src/components/switch-off.png");
+    this.load.image("wire", "src/components/wire.png");
+    this.load.image("ammeter", "src/components/ammeter.png");
     this.load.image("voltmeter", "src/components/voltmeter.png");
   }
 
   create() {
     const { width, height } = this.cameras.main;
 
-    // Set up camera controls
     this.setupCameraControls();
 
-    // Create workspace layer (will be affected by camera zoom/pan)
     this.workspaceLayer = this.add.container(0, 0);
     this.workspaceLayer.setDepth(0);
 
-    // površje mize (on workspace layer)
     const desk = this.add
       .rectangle(0, 0, width * 3, height * 3, 0xe0c9a6)
       .setOrigin(0);
     this.workspaceLayer.add(desk);
 
-    // Store grid graphics reference for dynamic updates
     this.gridGraphics = this.add.graphics();
     this.gridGraphics.setDepth(1);
     this.workspaceLayer.add(this.gridGraphics);
     this.updateGrid();
 
-    // Store workspace offset for panning
     this.workspaceOffsetX = 0;
     this.workspaceOffsetY = 0;
 
@@ -60,7 +59,6 @@ export default class WorkspaceScene extends Phaser.Scene {
     this.infoWindow.setDepth(1000);
     this.infoWindow.setVisible(false);
 
-    // ozadje info okna
     const infoBox = this.add.rectangle(0, 0, 200, 80, 0x2c2c2c, 0.95);
     infoBox.setStrokeStyle(2, 0xffffff);
     const infoText = this.add
@@ -77,87 +75,79 @@ export default class WorkspaceScene extends Phaser.Scene {
 
     this.challenges = [
       {
-        prompt: "Sestavi preprosti električni krog z baterijo in svetilko.",
+        prompt: "Build a simple circuit with a battery and a bulb.",
         requiredComponents: [
-          "baterija",
-          "svetilka",
-          "žica",
-          "žica",
-          "žica",
-          "žica",
-          "žica",
-          "žica",
+          "battery",
+          "bulb",
+          "wire",
+          "wire",
+          "wire",
+          "wire",
+          "wire",
+          "wire",
         ],
         theory: [
-          "Osnovni električni krog potrebuje vir, to je v našem primeru baterija. Potrebuje tudi porabnike, to je svetilka. Električni krog je v našem primeru sklenjen, kar je nujno potrebno, da električni tok teče preko prevodnikov oziroma žic.",
+          "A basic circuit needs a power source (battery) and consumers (bulb). The circuit must be closed for current to flow through the conductors (wires).",
         ],
       },
       {
-        prompt:
-          "Sestavi preprosti nesklenjeni električni krog z baterijo, svetilko in stikalom.",
-        requiredComponents: ["baterija", "svetilka", "žica", "stikalo-off"],
+        prompt: "Build an open circuit with a battery, bulb, and switch.",
+        requiredComponents: ["battery", "bulb", "wire", "switch-off"],
         theory: [
-          "V nesklenjenem krogu je stikalo odprto, kar pomeni, da je električni tok prekinjen. Svetilka posledično zato ne sveti.",
+          "In an open circuit, the switch is open, meaning the current is interrupted. The bulb does not light up.",
         ],
       },
       {
-        prompt:
-          "Sestavi preprosti sklenjeni električni krog z baterijo, svetilko in stikalom.",
-        requiredComponents: ["baterija", "svetilka", "žica", "stikalo-on"],
+        prompt: "Build a closed circuit with a battery, bulb, and switch.",
+        requiredComponents: ["battery", "bulb", "wire", "switch-on"],
         theory: [
-          "V sklenjenem krogu je stikalo zaprto, kar pomeni, da lahko električni tok teče neovirano. Torej v tem primeru so vrata zaprta.",
+          "In a closed circuit, the switch is closed, allowing current to flow freely. The bulb lights up.",
         ],
       },
       {
-        prompt:
-          "Sestavi električni krog z baterijo, svetilko in stikalom, ki ga lahko ugašaš in prižigaš.",
+        prompt: "Build a circuit with a battery, bulb, and switch that you can turn on and off.",
         requiredComponents: [
-          "baterija",
-          "svetilka",
-          "žica",
-          "stikalo-on",
-          "stikalo-off",
+          "battery",
+          "bulb",
+          "wire",
+          "switch-on",
+          "switch-off",
         ],
         theory: [
-          "Stikalo nam omogoča nadzor nad pretokom električnega toka. Ko je stikalo zaprto, tok teče in posledično svetilka sveti. Kadar pa je stikalo odprto, tok ne teče in se svetilka ugasne. To lahko primerjamo z vklapljanjem in izklapljanjem električnih naprav v naših domovih.",
+          "A switch allows control over current flow. When closed, current flows and the bulb lights. When open, current stops and the bulb turns off.",
         ],
       },
       {
-        prompt: "Sestavi krog z dvema baterijama in svetilko. ",
-        requiredComponents: ["baterija", "baterija", "svetilka", "žica"],
+        prompt: "Build a circuit with two batteries and a bulb.",
+        requiredComponents: ["battery", "battery", "bulb", "wire"],
         theory: [
-          "Kadar vežemo dve ali več baterij zaporedno, se napetosti seštevajo. Večja je napetost, večji je električni tok. V našem primeru zato svetilka sveti močneje.",
+          "When batteries are connected in series, voltages add up. Higher voltage means higher current, so the bulb shines brighter.",
         ],
       },
       {
-        prompt:
-          "V električni krog zaporedno poveži dve svetilki, ki ju priključiš na baterijo. ",
-        requiredComponents: ["baterija", "svetilka", "svetilka", "žica"],
+        prompt: "Connect two bulbs in series to a battery.",
+        requiredComponents: ["battery", "bulb", "bulb", "wire"],
         type: "series",
         theory: [
-          "V zaporedni vezavi teče isti električni tok skozi vse svetilke. Napetost baterije se porazdeli. Če imamo primer, da ena svetilka preneha delovati, bo ta prekinila tok skozi drugo svetilko.",
+          "In a series connection, the same current flows through all bulbs. If one bulb fails, it breaks the circuit for the other.",
         ],
       },
-
       {
-        prompt:
-          "V električni krog vzporedno poveži dve svetilki, ki ju priključiš na baterijo. ",
-        requiredComponents: ["baterija", "svetilka", "svetilka", "žica"],
+        prompt: "Connect two bulbs in parallel to a battery.",
+        requiredComponents: ["battery", "bulb", "bulb", "wire"],
         type: "parallel",
         theory: [
-          "V vzporedni vezavi ima vsaka svetilka enako napetost kot baterija. Eletrični tok se porazdeli med svetilkami. Če ena svetilka preneha delovati, bo druga še vedno delovala.",
+          "In a parallel connection, each bulb has the same voltage as the battery. If one fails, the other still works.",
         ],
       },
       {
-        prompt: "Sestavi električni krog s svetilko in uporom. ",
-        requiredComponents: ["baterija", "svetilka", "žica", "upor"],
+        prompt: "Build a circuit with a bulb and a resistor.",
+        requiredComponents: ["battery", "bulb", "wire", "resistor"],
         theory: [
-          "Upor omejuje tok v krogu. Večji kot je upor, manjši je tok. Spoznajmo Ohmov zakon: tok (I) = napetost (U) / upornost (R). Svetilka bo svetila manj intenzivno, saj skozi njo teče manjši tok.",
+          "A resistor limits current in a circuit. Higher resistance means lower current. Ohm's law: I = V / R. The bulb shines less brightly.",
         ],
       },
     ];
-
-    // this.currentChallengeIndex = 0;
 
     this.promptText = this.add
       .text(
@@ -173,6 +163,10 @@ export default class WorkspaceScene extends Phaser.Scene {
         }
       )
       .setOrigin(0.5);
+    
+    if (this.mode === "challenge") {
+      this.promptText.setVisible(false);
+    }
 
     this.checkText = this.add
       .text(width / 2, height - 70, "", {
@@ -233,45 +227,58 @@ export default class WorkspaceScene extends Phaser.Scene {
       return { bg, text };
     };
 
-    makeButton(width - 140, 75, "Lestvica", () =>
-      this.scene.start("ScoreboardScene", { cameFromMenu: false })
-    );
-    makeButton(width - 140, 125, "Simulacija", () =>
-      this.runSimulationAndCheck()
-    );
-    makeButton(width - 140, 175, "Shrani krog", () => this.openSaveModal());
-    makeButton(width - 140, 225, "Naloži krog", () => this.openLoadModal());
+    if (this.mode === "challenge") {
+      // Buttons below the challenge goal panel (which is created in setupChallenge methods at y=200, height ~150)
+      // Challenge panel spans roughly y=125 to y=275, so buttons start at y=300
+      makeButton(width - 140, 310, "Simulate", () =>
+        this.runSimulationAndCheck()
+      );
+      makeButton(width - 140, 360, "Leaderboard", () =>
+        this.scene.start("ScoreboardScene", { cameFromMenu: false })
+      );
+      makeButton(width - 140, 410, "Reset Challenge", () =>
+        this.resetChallenge()
+      );
+      makeButton(width - 140, 510, "+", () => this.zoomIn());
+      makeButton(width - 140, 560, "-", () => this.zoomOut());
+      makeButton(width - 140, 610, "Reset View", () => this.resetZoom());
+    } else {
+      makeButton(width - 140, 75, "Leaderboard", () =>
+        this.scene.start("ScoreboardScene", { cameFromMenu: false })
+      );
+      makeButton(width - 140, 125, "Simulate", () =>
+        this.runSimulationAndCheck()
+      );
+      makeButton(width - 140, 175, "Save Circuit", () => this.openSaveModal());
+      makeButton(width - 140, 225, "Load Circuit", () => this.openLoadModal());
+      makeButton(width - 140, 325, "+", () => this.zoomIn());
+      makeButton(width - 140, 375, "-", () => this.zoomOut());
+      makeButton(width - 140, 425, "Reset", () => this.resetZoom());
+    }
 
-    // Zoom buttons
-    makeButton(width - 140, 325, "+", () => this.zoomIn());
-    makeButton(width - 140, 375, "-", () => this.zoomOut());
-    makeButton(width - 140, 425, "Reset", () => this.resetZoom());
-
-    // stranska vrstica na levi
     const panelWidth = 150;
     this.add.rectangle(0, 0, panelWidth, height, 0xc0c0c0).setOrigin(0);
     this.add.rectangle(0, 0, panelWidth, height, 0x000000, 0.2).setOrigin(0);
 
     this.add
-      .text(panelWidth / 2, 60, "Komponente", {
+      .text(panelWidth / 2, 60, "Components", {
         fontSize: "18px",
         color: "#ffffff",
         fontStyle: "bold",
       })
       .setOrigin(0.5);
 
-    // komponente v stranski vrstici
-    this.createComponent(panelWidth / 2, 100, "baterija", 0xffcc00);
-    this.createComponent(panelWidth / 2, 180, "upor", 0xff6600);
-    this.createComponent(panelWidth / 2, 260, "svetilka", 0xff0000);
-    this.createComponent(panelWidth / 2, 340, "stikalo-on", 0x666666);
-    this.createComponent(panelWidth / 2, 420, "stikalo-off", 0x666666);
-    this.createComponent(panelWidth / 2, 500, "žica", 0x0066cc);
-    this.createComponent(panelWidth / 2, 580, "ampermeter", 0x00cc66);
+    this.createComponent(panelWidth / 2, 100, "battery", 0xffcc00);
+    this.createComponent(panelWidth / 2, 180, "resistor", 0xff6600);
+    this.createComponent(panelWidth / 2, 260, "bulb", 0xff0000);
+    this.createComponent(panelWidth / 2, 340, "switch-on", 0x666666);
+    this.createComponent(panelWidth / 2, 420, "switch-off", 0x666666);
+    this.createComponent(panelWidth / 2, 500, "wire", 0x0066cc);
+    this.createComponent(panelWidth / 2, 580, "ammeter", 0x00cc66);
     this.createComponent(panelWidth / 2, 660, "voltmeter", 0x00cc66);
 
     const backButton = this.add
-      .text(12, 10, "↩ Nazaj", {
+      .text(12, 10, "↩ Back", {
         fontFamily: "Arial",
         fontSize: "20px",
         color: "#387affff",
@@ -284,69 +291,45 @@ export default class WorkspaceScene extends Phaser.Scene {
       .on("pointerdown", () => {
         this.cameras.main.fade(300, 0, 0, 0);
         this.time.delayedCall(300, () => {
-          this.scene.start("LabScene");
+          if (this.mode === "challenge") {
+            this.scene.start("ChallengeSelectionScene", { workspaceType: "electric" });
+          } else {
+            this.scene.start("LabScene");
+          }
         });
       });
 
-    this.add
-      .text(
-        width / 2 + 50,
-        30,
-        "Povleci komponente na mizo in zgradi svoj električni krog!",
-        {
-          fontSize: "20px",
-          color: "#333",
-          fontStyle: "bold",
-          align: "center",
-          backgroundColor: "#ffffff88",
-          padding: { x: 15, y: 8 },
-        }
-      )
-      .setOrigin(0.5);
-
-    // shrani komponente na mizi
+    // Initialize arrays before challenge setup
     this.placedComponents = [];
+    this.predefinedComponents = [];
     this.gridSize = 40;
-    this.selectedComponent = null; // za izbrano komponento
+    this.selectedComponent = null;
     
-    // Undo/Redo system
     this.undoStack = [];
     this.redoStack = [];
     this.maxHistorySize = 10;
+
+    this.initializeChallenge();
+
+    if (this.mode !== "challenge") {
+      this.add
+        .text(
+          width / 2 + 50,
+          30,
+          "Drag components to the workspace and build your circuit!",
+          {
+            fontSize: "20px",
+            color: "#333",
+            fontStyle: "bold",
+            align: "center",
+            backgroundColor: "#ffffff88",
+            padding: { x: 15, y: 8 },
+          }
+        )
+        .setOrigin(0.5);
+    }
     
-    // Save initial empty state
     this.saveState('initial_state');
-
-    // const scoreButton = this.add.text(this.scale.width / 1.1, 25, 'Lestvica', {
-    //   fontFamily: 'Arial',
-    //   fontSize: '18px',
-    //   color: '#0066ff',
-    //   backgroundColor: '#e1e9ff',
-    //   padding: { x: 20, y: 10 }
-    // })
-    //   .setOrigin(0.5)
-    //   .setInteractive({ useHandCursor: true })
-    //   .on('pointerover', () => scoreButton.setStyle({ color: '#0044cc' }))
-    //   .on('pointerout', () => scoreButton.setStyle({ color: '#0066ff' }))
-    //   .on('pointerdown', () => {
-    //     this.scene.start('ScoreboardScene');
-    //   });
-
-    // const simulate = this.add.text(this.scale.width / 1.1, 25, 'Simulacija', {
-    //   fontFamily: 'Arial',
-    //   fontSize: '18px',
-    //   color: '#0066ff',
-    //   backgroundColor: '#e1e9ff',
-    //   padding: { x: 20, y: 10 }
-    // })
-    //   .setOrigin(0.5, -1)
-    //   .setInteractive({ useHandCursor: true })
-    //   .on('pointerover', () => simulate.setStyle({ color: '#0044cc' }))
-    //   .on('pointerout', () => simulate.setStyle({ color: '#0066ff' }))
-    //   .on('pointerdown', () => {
-    //     console.log(this.graph);
-    //     this.graph.simulate();
-    //   });
 
     console.log(JSON.parse(localStorage.getItem("users")));
   }
@@ -704,16 +687,16 @@ export default class WorkspaceScene extends Phaser.Scene {
 
   getComponentDetails(type) {
     const details = {
-      baterija: "Napetost: 3.3 V\nVir električne energije",
-      upor: "Uporabnost: omejuje tok\nMeri se v ohmih (Ω)",
-      svetilka: "Pretvarja električno energijo v svetlobo",
-      "stikalo-on": "Dovoljuje pretok toka",
-      "stikalo-off": "Prepreči pretok toka",
-      žica: "Povezuje komponente\nKlikni za obračanje",
-      ampermeter: "Meri električni tok\nEnota: amperi (A)",
-      voltmeter: "Meri električno napetost\nEnota: volti (V)",
+      battery: "Voltage: 3.3 V\nPower source",
+      resistor: "Limits current flow\nMeasured in ohms (Ω)",
+      bulb: "Converts electrical energy to light",
+      "switch-on": "Allows current flow",
+      "switch-off": "Blocks current flow",
+      wire: "Connects components\nClick to rotate",
+      ammeter: "Measures electric current\nUnit: amperes (A)",
+      voltmeter: "Measures voltage\nUnit: volts (V)",
     };
-    return details[type] || "Komponenta";
+    return details[type] || "Component";
   }
 
   createGrid() {
@@ -754,6 +737,8 @@ export default class WorkspaceScene extends Phaser.Scene {
 
   getNearbyNodePositions(excludeComponent = null) {
     const nodes = [];
+    if (!this.placedComponents) return nodes;
+    
     this.placedComponents.forEach((comp) => {
       if (comp === excludeComponent) return;
       const logic = comp.getData("logicComponent");
@@ -865,6 +850,11 @@ export default class WorkspaceScene extends Phaser.Scene {
   }
 
   deleteComponent(component) {
+    // Prevent deletion of predefined challenge components
+    if (component.getData("isPredefined")) {
+      return;
+    }
+    
     const idx = this.placedComponents.indexOf(component);
     if (idx !== -1) this.placedComponents.splice(idx, 1);
     component.destroy();
@@ -1060,7 +1050,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     let id;
 
     switch (type) {
-      case "baterija":
+      case "battery":
         id = "bat_" + this.getRandomInt(1000, 9999);
         comp = new Battery(
           id,
@@ -1072,14 +1062,14 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localStart = { x: -40, y: 0 };
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add
-          .image(0, 0, "baterija")
+          .image(0, 0, "battery")
           .setOrigin(0.5)
           .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData("logicComponent", comp);
         break;
 
-      case "upor":
+      case "resistor":
         id = "res_" + this.getRandomInt(1000, 9999);
         comp = new Resistor(
           id,
@@ -1091,14 +1081,14 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localStart = { x: -40, y: 0 };
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add
-          .image(0, 0, "upor")
+          .image(0, 0, "resistor")
           .setOrigin(0.5)
           .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData("logicComponent", comp);
         break;
 
-      case "svetilka":
+      case "bulb":
         id = "bulb_" + this.getRandomInt(1000, 9999);
         comp = new Bulb(
           id,
@@ -1115,7 +1105,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         component.setData("bulbGlow", glowCircle);
         // Then add the bulb image on top
         componentImage = this.add
-          .image(0, 0, "svetilka")
+          .image(0, 0, "bulb")
           .setOrigin(0.5)
           .setDisplaySize(80, 80);
         component.add(componentImage);
@@ -1123,7 +1113,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         component.setData("bulbImage", componentImage);
         break;
 
-      case "stikalo-on":
+      case "switch-on":
         id = "switch_" + this.getRandomInt(1000, 9999);
         comp = new Switch(
           id,
@@ -1135,14 +1125,14 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localStart = { x: -40, y: 0 };
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add
-          .image(0, 0, "stikalo-on")
+          .image(0, 0, "switch-on")
           .setOrigin(0.5)
           .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData("logicComponent", comp);
         break;
 
-      case "stikalo-off":
+      case "switch-off":
         id = "switch_" + this.getRandomInt(1000, 9999);
         comp = new Switch(
           id,
@@ -1154,14 +1144,14 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localStart = { x: -40, y: 0 };
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add
-          .image(0, 0, "stikalo-off")
+          .image(0, 0, "switch-off")
           .setOrigin(0.5)
           .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData("logicComponent", comp);
         break;
 
-      case "žica":
+      case "wire":
         id = "wire_" + this.getRandomInt(1000, 9999);
         comp = new Wire(
           id,
@@ -1172,16 +1162,16 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.localStart = { x: -40, y: 0 };
         comp.localEnd = { x: 40, y: 0 };
         componentImage = this.add
-          .image(0, 0, "žica")
+          .image(0, 0, "wire")
           .setOrigin(0.5)
           .setDisplaySize(80, 80);
         component.add(componentImage);
         component.setData("logicComponent", comp);
         break;
-      case "ampermeter":
+      case "ammeter":
         id = "ammeter_" + this.getRandomInt(1000, 9999);
         componentImage = this.add
-          .image(0, 0, "ampermeter")
+          .image(0, 0, "ammeter")
           .setOrigin(0.5)
           .setDisplaySize(80, 80);
         component.add(componentImage);
@@ -1200,22 +1190,20 @@ export default class WorkspaceScene extends Phaser.Scene {
 
     component.on("pointerover", () => {
       this.selectedComponent = component;
-      if (component.getData("isInPanel")) {
-        // prikaži info okno
-        const details = this.getComponentDetails(type);
-        this.infoText.setText(details);
-
-        // zraven komponente
-        this.infoWindow.x = x + 120;
-        this.infoWindow.y = y;
-        this.infoWindow.setVisible(true);
-      } else {
-        // Prikaži info s Delete napokom za komponente na delovni površini
-        const details = this.getComponentDetails(type) + "\n\nPritisni Delete za brisanje";
-        this.infoText.setText(details);
-        this.infoWindow.x = component.x;
-        this.infoWindow.y = component.y - 100;
-        this.infoWindow.setVisible(true);
+      if (this.mode === "sandbox") {
+        if (component.getData("isInPanel")) {
+          const details = this.getComponentDetails(type);
+          this.infoText.setText(details);
+          this.infoWindow.x = x + 120;
+          this.infoWindow.y = y;
+          this.infoWindow.setVisible(true);
+        } else {
+          const details = this.getComponentDetails(type) + "\n\nPress Delete to remove";
+          this.infoText.setText(details);
+          this.infoWindow.x = component.x;
+          this.infoWindow.y = component.y - 100;
+          this.infoWindow.setVisible(true);
+        }
       }
       component.setScale(1.1);
     });
@@ -1288,14 +1276,32 @@ export default class WorkspaceScene extends Phaser.Scene {
     });
 
     component.on("dragend", () => {
-      const isInPanel = component.x < 200;
+      // Convert screen position to workspace coordinates for panel check
+      const screenX = component.x;
+      const isInPanel = screenX < 200;
 
       if (isInPanel && !component.getData("isInPanel")) {
-        // če je ob strani, se odstrani
+        // Dragged back to panel - destroy it
+        // Prevent deletion of predefined challenge components
+        if (component.getData("isPredefined")) {
+          // Return to previous position
+          const previousX = component.getData("previousX") || component.getData("originalX");
+          const previousY = component.getData("previousY") || component.getData("originalY");
+          component.x = previousX;
+          component.y = previousY;
+          component.setData("isDragging", false);
+          return;
+        }
+        this.placedComponents = this.placedComponents.filter(c => c !== component);
         component.destroy();
+        this.rebuildGraph();
       } else if (!isInPanel && component.getData("isInPanel")) {
-        // s strani na mizo
-        const snapped = this.snapToGrid(component.x, component.y);
+        // Component dragged from panel to workspace
+        // Convert screen coordinates to workspace coordinates
+        const workspaceX = (screenX - this.workspaceOffsetX) / this.currentZoom;
+        const workspaceY = (component.y - this.workspaceOffsetY) / this.currentZoom;
+        
+        const snapped = this.snapToGrid(workspaceX, workspaceY);
         const aligned = this.alignToNearbyNodes(component, snapped);
 
         if (this.isPositionOccupied(aligned.x, aligned.y, component)) {
@@ -1324,6 +1330,12 @@ export default class WorkspaceScene extends Phaser.Scene {
         component.setData("isRotated", false);
         component.setData("isInPanel", false);
 
+        // Add component to workspace layer BEFORE creating replacement
+        // This ensures the component is properly reparented with correct coordinates
+        if (this.workspaceLayer && !component.getData("isInPanel")) {
+          this.workspaceLayer.add(component);
+        }
+
         this.createComponent(
           component.getData("originalX"),
           component.getData("originalY"),
@@ -1332,10 +1344,6 @@ export default class WorkspaceScene extends Phaser.Scene {
         );
 
         this.placedComponents.push(component);
-        // Add component to workspace layer if it exists
-        if (this.workspaceLayer && !component.getData("isInPanel")) {
-          this.workspaceLayer.add(component);
-        }
         // Rebuild graph and check circuit state for real-time bulb updates
         this.rebuildGraph();
         this.saveState('component_placed');
@@ -1436,62 +1444,70 @@ export default class WorkspaceScene extends Phaser.Scene {
       comp.getData("type")
     );
     console.log("components", placedTypes);
-    this.checkText.setStyle({ color: "#cc0000" });
-
-    // najprej preveri rezultat simulacije
-    if (this.sim === undefined) {
-      this.checkText.setText("Zaženi simulacijo");
-      return;
+    if (this.mode === "sandbox") {
+      this.checkText.setStyle({ color: "#cc0000" });
     }
 
-    if (this.sim == false) {
-      if (this.connected == -1) {
-        this.checkText.setText("Manjka ti baterija");
-      } else if (this.connected == -2) {
-        this.checkText.setText("Stikalo je izklopljeno");
-      } else {
-        this.checkText.setText(
-          "Električni krog ni sklenjen. Preveri kako si ga sestavil"
-        );
+    if (this.sim === undefined) {
+      if (this.mode === "sandbox") {
+        this.checkText.setText("Run simulation");
       }
       return;
     }
 
-    // preverjas ce so vse komponente na mizi
+    if (this.sim == false) {
+      if (this.mode === "sandbox") {
+        if (this.connected == -1) {
+          this.checkText.setText("Missing battery");
+        } else if (this.connected == -2) {
+          this.checkText.setText("Switch is off");
+        } else {
+          this.checkText.setText(
+            "Circuit is not closed. Check your connections"
+          );
+        }
+      }
+      return;
+    }
+
     if (
       !currentChallenge.requiredComponents.every((req) =>
         placedTypes.includes(req)
       )
     ) {
-      this.checkText.setText("Manjkajo komponente za krog.");
+      if (this.mode === "sandbox") {
+        this.checkText.setText("Missing components for circuit.");
+      }
       return;
     }
 
     if (currentChallenge.type) {
       const arrangement = this.classifyBulbArrangement();
       if (arrangement !== currentChallenge.type) {
-        this.checkText.setText(
-          currentChallenge.type === "series"
-            ? "Vezava mora biti zaporedna."
-            : "Vezava mora biti vzporedna."
-        );
+        if (this.mode === "sandbox") {
+          this.checkText.setText(
+            currentChallenge.type === "series"
+              ? "Connection must be in series."
+              : "Connection must be in parallel."
+          );
+        }
         return;
       }
     }
 
-    // je zaprt krog
-
-    this.checkText.setStyle({ color: "#00aa00" });
-    this.checkText.setText("Čestitke! Krog je pravilen.");
-    this.addPoints(10);
-
-    if (currentChallenge.theory) {
-      this.showTheory(currentChallenge.theory);
-    } else {
+    if (this.mode === "sandbox") {
       this.checkText.setStyle({ color: "#00aa00" });
-      this.checkText.setText("Čestitke! Krog je pravilen.");
+      this.checkText.setText("Congratulations! Circuit is correct.");
       this.addPoints(10);
-      this.time.delayedCall(2000, () => this.nextChallenge());
+
+      if (currentChallenge.theory) {
+        this.showTheory(currentChallenge.theory);
+      } else {
+        this.checkText.setStyle({ color: "#00aa00" });
+        this.checkText.setText("Congratulations! Circuit is correct.");
+        this.addPoints(10);
+        this.time.delayedCall(2000, () => this.nextChallenge());
+      }
     }
     // this.placedComponents.forEach(comp => comp.destroy());
     // this.placedComponents = [];
@@ -1520,7 +1536,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         this.challenges[this.currentChallengeIndex].prompt
       );
     } else {
-      this.promptText.setText("Vse naloge so uspešno opravljene! Čestitke!");
+      this.promptText.setText("All tasks completed successfully! Congratulations!");
       localStorage.removeItem("currentChallengeIndex");
     }
   }
@@ -1555,7 +1571,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       .setDepth(11);
 
     this.continueButton = this.add
-      .text(width / 2, height / 2 + 70, "Nadaljuj", {
+      .text(width / 2, height / 2 + 70, "Continue", {
         fontSize: "18px",
         color: "#0066ff",
         backgroundColor: "#ffffff",
@@ -1605,17 +1621,16 @@ export default class WorkspaceScene extends Phaser.Scene {
     );
 
     this.saveModalText = this.add
-      .text(width / 2, height / 2 - 40, "Ime kroga:", {
+      .text(width / 2, height / 2 - 40, "Circuit Name:", {
         fontSize: "20px",
         color: "#ffffff",
       })
       .setOrigin(0.5)
       .setDepth(1004);
 
-    // HTML INPUT FIELD
     const input = document.createElement("input");
     input.type = "text";
-    input.placeholder = "Vnesi ime kroga";
+    input.placeholder = "Enter circuit name";
     input.style.position = "absolute";
     input.style.top = height / 2 - 10 + "px";
     input.style.left = width / 2 - 120 + "px";
@@ -1625,7 +1640,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     document.body.appendChild(input);
 
     this.saveConfirm = this.add
-      .text(width / 2, height / 2 + 50, "Shrani", {
+      .text(width / 2, height / 2 + 50, "Save", {
         fontSize: "22px",
         backgroundColor: "#ffffff",
         color: "#000000",
@@ -1643,7 +1658,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       });
 
     this.saveCancel = this.add
-      .text(width / 2, height / 2 + 100, "Prekliči", {
+      .text(width / 2, height / 2 + 100, "Cancel", {
         fontSize: "20px",
         color: "#ff6666",
       })
@@ -1702,7 +1717,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       .setDepth(2000);
 
     this.loadTitle = this.add
-      .text(width / 2, height / 2 - 150, "Naloži krog", {
+      .text(width / 2, height / 2 - 150, "Load Circuit", {
         fontSize: "26px",
         color: "#ffffff",
       })
@@ -1737,7 +1752,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       });
 
     this.loadClose = this.add
-      .text(width / 2, height / 2 + 150, "Zapri", {
+      .text(width / 2, height / 2 + 150, "Close", {
         fontSize: "20px",
         color: "#ff6666",
       })
@@ -1765,8 +1780,6 @@ export default class WorkspaceScene extends Phaser.Scene {
     this.loadClose?.destroy();
     this.loadCircuitTexts?.forEach((t) => t.destroy());
     this.loadCircuitTexts = [];
-
-    // ostali tekstovni elementi se uničijo avtomatsko, ker niso shranjeni v array
   }
   loadCircuit(components) {
     components.forEach((item) => {
@@ -1790,7 +1803,6 @@ export default class WorkspaceScene extends Phaser.Scene {
 
       component.setData("isInPanel", false);
       
-      // Dodaj komponento v workspaceLayer da sledi zoomu
       if (this.workspaceLayer) {
         this.workspaceLayer.add(component);
       }
@@ -1801,7 +1813,679 @@ export default class WorkspaceScene extends Phaser.Scene {
     // Rebuild graph in check circuit state after loading
     this.rebuildGraph();
   }
+
+  resetChallenge() {
+    // Remove all user-added components (not predefined)
+    const componentsToRemove = this.placedComponents.filter(
+      comp => !this.predefinedComponents.includes(comp)
+    );
+    
+    componentsToRemove.forEach(component => {
+      // Remove from graph
+      const logicComp = component.getData("logicComponent");
+      if (logicComp) {
+        this.graph.removeComponent(logicComp);
+      }
+      
+      // Remove from arrays
+      const placedIndex = this.placedComponents.indexOf(component);
+      if (placedIndex > -1) {
+        this.placedComponents.splice(placedIndex, 1);
+      }
+      
+      // Destroy the visual
+      component.destroy();
+    });
+    
+    // Reset predefined components to their original positions
+    this.predefinedComponents.forEach(component => {
+      const originalX = component.getData("predefinedX");
+      const originalY = component.getData("predefinedY");
+      const originalRotation = component.getData("predefinedRotation") || 0;
+      
+      if (originalX !== undefined && originalY !== undefined) {
+        component.x = originalX;
+        component.y = originalY;
+        component.setData("rotation", originalRotation);
+        component.angle = originalRotation;
+        component.setData("previousX", originalX);
+        component.setData("previousY", originalY);
+        
+        // Update logic node positions
+        this.updateLogicNodePositions(component);
+      }
+    });
+    
+    // Rebuild graph to update connections
+    this.rebuildGraph();
+    
+    // Clear undo/redo stacks
+    this.undoStack = [];
+    this.redoStack = [];
+  }
+
+  initializeChallenge() {
+    console.log("initializeChallenge called - mode:", this.mode, "challengeId:", this.selectedChallengeId);
+    
+    if (this.mode !== "challenge" || !this.selectedChallengeId) {
+      console.log("Skipping challenge initialization - mode or ID not set");
+      return;
+    }
+
+    this.resetZoom();
+
+    const challengeId = parseInt(this.selectedChallengeId);
+    console.log("Setting up electric challenge:", challengeId);
+    
+    if (challengeId === 1) {
+      this.setupChallenge1();
+    } else if (challengeId === 2) {
+      this.setupChallenge2();
+    } else if (challengeId === 3) {
+      this.setupChallenge3();
+    } else if (challengeId === 4) {
+      this.setupChallenge4();
+    } else if (challengeId === 5) {
+      this.setupChallenge5();
+    } else if (challengeId === 6) {
+      this.setupChallenge6();
+    } else if (challengeId === 7) {
+      this.setupChallenge7();
+    } else if (challengeId === 8) {
+      this.setupChallenge8();
+    } else if (challengeId === 9) {
+      this.setupChallenge9();
+    } else if (challengeId === 10) {
+      this.setupChallenge10();
+    }
+  }
+
+  placeComponentOnGrid(type, gridX, gridY, isPredefined = true) {
+    const worldX = gridX * this.gridSize;
+    const worldY = gridY * this.gridSize;
+    
+    let color;
+    switch(type) {
+      case "battery": color = 0xffcc00; break;
+      case "bulb": color = 0xff0000; break;
+      case "resistor": color = 0xff6600; break;
+      case "switch-on": color = 0x666666; break;
+      case "switch-off": color = 0x666666; break;
+      case "wire": color = 0x0066cc; break;
+      default: color = 0xffffff;
+    }
+    
+    const component = this.createComponent(worldX, worldY, type, color, true);
+    this.workspaceLayer.add(component);
+    this.placedComponents.push(component);
+    component.setData("type", type);
+    component.setData("isPredefined", isPredefined);
+    component.setData("isInPanel", false);
+    component.setData("previousX", worldX);
+    component.setData("previousY", worldY);
+    
+    if (isPredefined) {
+      // Store original positions for reset
+      component.setData("predefinedX", worldX);
+      component.setData("predefinedY", worldY);
+      component.setData("predefinedRotation", 0);
+      this.predefinedComponents.push(component);
+    }
+    
+    const comp = component.getData("logicComponent");
+    if (comp) {
+      this.graph.addComponent(comp);
+    }
+    
+    return component;
+  }
+
+  setupChallenge1() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    
+    this.createChallengePanel(width, "Connect the battery to the bulb\nto light it up using wires");
+  }
+
+  setupChallenge2() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    this.placeComponentOnGrid("switch-off", 20, 9);
+    
+    this.createChallengePanel(width, "Build an open circuit\nSwitch should be OFF (open)");
+  }
+
+  setupChallenge3() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    this.placeComponentOnGrid("switch-on", 20, 9);
+    
+    this.createChallengePanel(width, "Build a closed circuit\nSwitch should be ON (closed)");
+  }
+
+  setupChallenge4() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    this.placeComponentOnGrid("switch-on", 20, 7);
+    
+    this.createChallengePanel(width, "Add a switch you can turn on/off\nUse both switch states");
+  }
+
+  setupChallenge5() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("battery", 18, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    
+    this.createChallengePanel(width, "Connect two batteries in series\nwith the bulb");
+  }
+
+  setupChallenge6() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 22, 7);
+    this.placeComponentOnGrid("bulb", 22, 11);
+    
+    this.createChallengePanel(width, "Connect two bulbs in series\nto the battery");
+  }
+
+  setupChallenge7() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 25, 7);
+    this.placeComponentOnGrid("bulb", 25, 11);
+    
+    this.createChallengePanel(width, "Connect two bulbs in parallel\nto the battery");
+  }
+
+  setupChallenge8() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("resistor", 20, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    
+    this.createChallengePanel(width, "Connect battery, resistor, and bulb\nin a complete circuit");
+  }
+
+  setupChallenge9() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("resistor", 18, 9);
+    this.placeComponentOnGrid("resistor", 21, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    
+    this.createChallengePanel(width, "Complex Series Circuit\nConnect battery, two resistors, and bulb in series");
+  }
+
+  setupChallenge10() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 22, 6);
+    this.placeComponentOnGrid("bulb", 22, 9);
+    this.placeComponentOnGrid("bulb", 22, 12);
+    
+    this.createChallengePanel(width, "Mixed Circuit Challenge\nCombine series and parallel connections");
+  }
+
+  createChallengePanel(width, goalText) {
+    // Position at the top right, above all buttons
+    const challengePanel = this.add.container(width - 140, 140);
+    challengePanel.setDepth(1001);
+
+    const panelBg = this.add.rectangle(0, 0, 280, 150, 0x2a2a4e, 0.95);
+    panelBg.setStrokeStyle(2, 0x3399ff);
+    challengePanel.add(panelBg);
+
+    const title = this.add.text(0, -55, "Challenge Goal:", {
+      fontSize: "14px",
+      color: "#ffff99",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    challengePanel.add(title);
+
+    const goal = this.add.text(0, -35, goalText, {
+      fontSize: "12px",
+      color: "#ffffff",
+      align: "center",
+      wordWrap: { width: 250 }
+    }).setOrigin(0.5);
+    challengePanel.add(goal);
+
+    const submitBtn = this.add.rectangle(0, 35, 220, 40, 0x4caf50);
+    submitBtn.setInteractive({ useHandCursor: true });
+    submitBtn.on('pointerover', () => submitBtn.setFillStyle(0x45a049));
+    submitBtn.on('pointerout', () => submitBtn.setFillStyle(0x4caf50));
+    submitBtn.on('pointerdown', () => this.checkChallengeCompletion());
+    challengePanel.add(submitBtn);
+
+    const submitText = this.add.text(0, 35, "Check Solution", {
+      fontSize: "14px",
+      color: "#ffffff",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    challengePanel.add(submitText);
+
+    this.challengePanel = challengePanel;
+  }
+
+  setupSimpleCircuitChallenge() {
+    const { width, height } = this.cameras.main;
+    
+    // Don't pre-place components - let users build from scratch
+    // Just show the challenge panel with instructions
+    
+    // Position aligned with Lestvica button on the right
+    const challengePanel = this.add.container(width - 140, 200);
+    challengePanel.setDepth(1001);
+
+    const panelBg = this.add.rectangle(0, 0, 280, 150, 0x2a2a4e, 0.95);
+    panelBg.setStrokeStyle(2, 0x3399ff);
+    challengePanel.add(panelBg);
+
+    const title = this.add.text(0, -55, "Challenge Goal:", {
+      fontSize: "14px",
+      color: "#ffff99",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    challengePanel.add(title);
+
+    const goal = this.add.text(0, -35, "Connect the battery to the bulb\nto light it up using wires", {
+      fontSize: "12px",
+      color: "#ffffff",
+      align: "center",
+      wordWrap: { width: 250 }
+    }).setOrigin(0.5);
+    challengePanel.add(goal);
+
+    const submitBtn = this.add.rectangle(0, 35, 220, 40, 0x4caf50);
+    submitBtn.setInteractive({ useHandCursor: true });
+    submitBtn.on('pointerover', () => submitBtn.setFillStyle(0x45a049));
+    submitBtn.on('pointerout', () => submitBtn.setFillStyle(0x4caf50));
+    submitBtn.on('pointerdown', () => this.checkChallengeCompletion());
+    challengePanel.add(submitBtn);
+
+    const submitText = this.add.text(0, 35, "Check Solution", {
+      fontSize: "14px",
+      color: "#ffffff",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    challengePanel.add(submitText);
+
+    this.challengePanel = challengePanel;
+  }
+
+  checkChallengeCompletion() {
+    if (!this.selectedChallengeId) return;
+
+    const challengeId = parseInt(this.selectedChallengeId);
+
+    if (challengeId === 1) {
+      this.checkChallenge1();
+    } else if (challengeId === 2) {
+      this.checkChallenge2();
+    } else if (challengeId === 3) {
+      this.checkChallenge3();
+    } else if (challengeId === 4) {
+      this.checkChallenge4();
+    } else if (challengeId === 5) {
+      this.checkChallenge5();
+    } else if (challengeId === 6) {
+      this.checkChallenge6();
+    } else if (challengeId === 7) {
+      this.checkChallenge7();
+    } else if (challengeId === 8) {
+      this.checkChallenge8();
+    }
+  }
+
+  checkChallenge1() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    if (bulbs.length === 0) {
+      this.showChallengeMessage("No bulbs found!", 0xff6b6b);
+      return;
+    }
+
+    const batteries = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "battery"
+    );
+
+    if (batteries.length === 0) {
+      this.showChallengeMessage("No battery found!", 0xff6b6b);
+      return;
+    }
+
+    const anyBulbLit = bulbs.some(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    });
+
+    if (!anyBulbLit) {
+      this.showChallengeMessage("Bulb is not lit! Check connections.", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge2() {
+    this.runSimulationAndCheck();
+
+    const switches = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "switch"
+    );
+
+    if (switches.length === 0) {
+      this.showChallengeMessage("Add a switch!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    const anyBulbLit = bulbs.some(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    });
+
+    if (anyBulbLit) {
+      this.showChallengeMessage("Circuit should be open! Switch must be OFF.", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge3() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const switches = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "switch"
+    );
+
+    if (switches.length === 0) {
+      this.showChallengeMessage("Add a switch!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    const anyBulbLit = bulbs.some(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    });
+
+    if (!anyBulbLit) {
+      this.showChallengeMessage("Circuit should be closed! Switch must be ON.", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge4() {
+    this.runSimulationAndCheck();
+
+    const switches = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "switch"
+    );
+
+    if (switches.length < 1) {
+      this.showChallengeMessage("Add at least one switch!", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge5() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const batteries = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "battery"
+    );
+
+    if (batteries.length < 2) {
+      this.showChallengeMessage("Need 2 batteries!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    const anyBulbLit = bulbs.some(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    });
+
+    if (!anyBulbLit) {
+      this.showChallengeMessage("Connect batteries in series!", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge6() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    if (bulbs.length < 2) {
+      this.showChallengeMessage("Need 2 bulbs!", 0xff6b6b);
+      return;
+    }
+
+    const bulbsLit = bulbs.filter(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    }).length;
+
+    if (bulbsLit < 2) {
+      this.showChallengeMessage("Both bulbs should be lit in series!", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge7() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    if (bulbs.length < 2) {
+      this.showChallengeMessage("Need 2 bulbs!", 0xff6b6b);
+      return;
+    }
+
+    const bulbsLit = bulbs.filter(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    }).length;
+
+    if (bulbsLit < 2) {
+      this.showChallengeMessage("Both bulbs should be lit in parallel!", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge8() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const resistors = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "resistor"
+    );
+
+    if (resistors.length === 0) {
+      this.showChallengeMessage("Add a resistor!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    const anyBulbLit = bulbs.some(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    });
+
+    if (!anyBulbLit) {
+      this.showChallengeMessage("Complete the circuit!", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  completeChallengeSuccess() {
+    this.showChallengeMessage("Challenge Complete! 🎉", 0x4caf50);
+    this.time.delayedCall(2000, () => {
+      this.cameras.main.fade(300, 0, 0, 0);
+      this.time.delayedCall(300, () => {
+        this.scene.start("ChallengeSelectionScene", { workspaceType: "electric" });
+      });
+    });
+  }
+
+  checkSimpleCircuit() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    if (bulbs.length === 0) {
+      this.showChallengeMessage("No bulbs found!", 0xff6b6b);
+      return;
+    }
+
+    const batteries = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "battery"
+    );
+
+    if (batteries.length === 0) {
+      this.showChallengeMessage("No battery found!", 0xff6b6b);
+      return;
+    }
+
+    this.showChallengeMessage("Challenge Complete! 🎉", 0x4caf50);
+    this.time.delayedCall(2000, () => {
+      this.cameras.main.fade(300, 0, 0, 0);
+      this.time.delayedCall(300, () => {
+        this.scene.start("ChallengeSelectionScene", { workspaceType: "electric" });
+      });
+    });
+  }
+
+  showChallengeMessage(text, color) {
+    const { width, height } = this.cameras.main;
+    
+    if (this.challengeMessage) {
+      this.challengeMessage.destroy();
+    }
+    if (this.challengeMessageText) {
+      this.challengeMessageText.destroy();
+    }
+
+    this.challengeMessage = this.add.rectangle(width / 2, height / 2 - 150, 400, 80, color, 0.9);
+    this.challengeMessage.setStrokeStyle(3, 0xffffff);
+    this.challengeMessage.setDepth(2000);
+
+    this.challengeMessageText = this.add.text(width / 2, height / 2 - 150, text, {
+      fontSize: "24px",
+      color: "#ffffff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5).setDepth(2001);
+
+    this.tweens.add({
+      targets: this.challengeMessage,
+      alpha: 1,
+      duration: 300
+    });
+
+    // Auto-hide message after 3 seconds
+    this.time.delayedCall(3000, () => {
+      if (this.challengeMessage) {
+        this.tweens.add({
+          targets: [this.challengeMessage, this.challengeMessageText],
+          alpha: 0,
+          duration: 300,
+          onComplete: () => {
+            if (this.challengeMessage) this.challengeMessage.destroy();
+            if (this.challengeMessageText) this.challengeMessageText.destroy();
+          }
+        });
+      }
+    });
+  }
 }
+
 
 const config = {
   type: Phaser.AUTO,
