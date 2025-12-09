@@ -228,9 +228,20 @@ export default class WorkspaceScene extends Phaser.Scene {
     };
 
     if (this.mode === "challenge") {
-      makeButton(width - 140, 75, "Leaderboard", () =>
+      // Buttons below the challenge goal panel (which is created in setupChallenge methods at y=200, height ~150)
+      // Challenge panel spans roughly y=125 to y=275, so buttons start at y=300
+      makeButton(width - 140, 310, "Simulate", () =>
+        this.runSimulationAndCheck()
+      );
+      makeButton(width - 140, 360, "Leaderboard", () =>
         this.scene.start("ScoreboardScene", { cameFromMenu: false })
       );
+      makeButton(width - 140, 410, "Reset Challenge", () =>
+        this.resetChallenge()
+      );
+      makeButton(width - 140, 510, "+", () => this.zoomIn());
+      makeButton(width - 140, 560, "-", () => this.zoomOut());
+      makeButton(width - 140, 610, "Reset View", () => this.resetZoom());
     } else {
       makeButton(width - 140, 75, "Leaderboard", () =>
         this.scene.start("ScoreboardScene", { cameFromMenu: false })
@@ -243,16 +254,6 @@ export default class WorkspaceScene extends Phaser.Scene {
       makeButton(width - 140, 325, "+", () => this.zoomIn());
       makeButton(width - 140, 375, "-", () => this.zoomOut());
       makeButton(width - 140, 425, "Reset", () => this.resetZoom());
-    }
-
-    if (this.mode === "challenge" && this.selectedChallengeTitle) {
-      this.add.text(width / 2, 20, `Challenge: ${this.selectedChallengeTitle}`, {
-        fontSize: "18px",
-        color: "#000000",
-        fontStyle: "bold",
-        backgroundColor: "#ffff99",
-        padding: { x: 15, y: 8 }
-      }).setOrigin(0.5).setDepth(500);
     }
 
     const panelWidth = 150;
@@ -290,9 +291,23 @@ export default class WorkspaceScene extends Phaser.Scene {
       .on("pointerdown", () => {
         this.cameras.main.fade(300, 0, 0, 0);
         this.time.delayedCall(300, () => {
-          this.scene.start("LabScene");
+          if (this.mode === "challenge") {
+            this.scene.start("ChallengeSelectionScene", { workspaceType: "electric" });
+          } else {
+            this.scene.start("LabScene");
+          }
         });
       });
+
+    // Initialize arrays before challenge setup
+    this.placedComponents = [];
+    this.predefinedComponents = [];
+    this.gridSize = 40;
+    this.selectedComponent = null;
+    
+    this.undoStack = [];
+    this.redoStack = [];
+    this.maxHistorySize = 10;
 
     this.initializeChallenge();
 
@@ -313,14 +328,6 @@ export default class WorkspaceScene extends Phaser.Scene {
         )
         .setOrigin(0.5);
     }
-
-    this.placedComponents = [];
-    this.gridSize = 40;
-    this.selectedComponent = null;
-    
-    this.undoStack = [];
-    this.redoStack = [];
-    this.maxHistorySize = 10;
     
     this.saveState('initial_state');
 
@@ -1269,14 +1276,32 @@ export default class WorkspaceScene extends Phaser.Scene {
     });
 
     component.on("dragend", () => {
-      const isInPanel = component.x < 200;
+      // Convert screen position to workspace coordinates for panel check
+      const screenX = component.x;
+      const isInPanel = screenX < 200;
 
       if (isInPanel && !component.getData("isInPanel")) {
-        // če je ob strani, se odstrani
+        // Dragged back to panel - destroy it
+        // Prevent deletion of predefined challenge components
+        if (component.getData("isPredefined")) {
+          // Return to previous position
+          const previousX = component.getData("previousX") || component.getData("originalX");
+          const previousY = component.getData("previousY") || component.getData("originalY");
+          component.x = previousX;
+          component.y = previousY;
+          component.setData("isDragging", false);
+          return;
+        }
+        this.placedComponents = this.placedComponents.filter(c => c !== component);
         component.destroy();
+        this.rebuildGraph();
       } else if (!isInPanel && component.getData("isInPanel")) {
-        // s strani na mizo
-        const snapped = this.snapToGrid(component.x, component.y);
+        // Component dragged from panel to workspace
+        // Convert screen coordinates to workspace coordinates
+        const workspaceX = (screenX - this.workspaceOffsetX) / this.currentZoom;
+        const workspaceY = (component.y - this.workspaceOffsetY) / this.currentZoom;
+        
+        const snapped = this.snapToGrid(workspaceX, workspaceY);
         const aligned = this.alignToNearbyNodes(component, snapped);
 
         if (this.isPositionOccupied(aligned.x, aligned.y, component)) {
@@ -1789,17 +1814,272 @@ export default class WorkspaceScene extends Phaser.Scene {
     this.rebuildGraph();
   }
 
-  initializeChallenge() {
-    if (this.mode !== "challenge" || !this.selectedChallengeId) return;
+  resetChallenge() {
+    // Remove all user-added components (not predefined)
+    const componentsToRemove = this.placedComponents.filter(
+      comp => !this.predefinedComponents.includes(comp)
+    );
+    
+    componentsToRemove.forEach(component => {
+      // Remove from graph
+      const logicComp = component.getData("logicComponent");
+      if (logicComp) {
+        this.graph.removeComponent(logicComp);
+      }
+      
+      // Remove from arrays
+      const placedIndex = this.placedComponents.indexOf(component);
+      if (placedIndex > -1) {
+        this.placedComponents.splice(placedIndex, 1);
+      }
+      
+      // Destroy the visual
+      component.destroy();
+    });
+    
+    // Reset predefined components to their original positions
+    this.predefinedComponents.forEach(component => {
+      const originalX = component.getData("predefinedX");
+      const originalY = component.getData("predefinedY");
+      const originalRotation = component.getData("predefinedRotation") || 0;
+      
+      if (originalX !== undefined && originalY !== undefined) {
+        component.x = originalX;
+        component.y = originalY;
+        component.setData("rotation", originalRotation);
+        component.angle = originalRotation;
+        component.setData("previousX", originalX);
+        component.setData("previousY", originalY);
+        
+        // Update logic node positions
+        this.updateLogicNodePositions(component);
+      }
+    });
+    
+    // Rebuild graph to update connections
+    this.rebuildGraph();
+    
+    // Clear undo/redo stacks
+    this.undoStack = [];
+    this.redoStack = [];
+  }
 
-    // Reset zoom and position for consistency
+  initializeChallenge() {
+    console.log("initializeChallenge called - mode:", this.mode, "challengeId:", this.selectedChallengeId);
+    
+    if (this.mode !== "challenge" || !this.selectedChallengeId) {
+      console.log("Skipping challenge initialization - mode or ID not set");
+      return;
+    }
+
     this.resetZoom();
 
     const challengeId = parseInt(this.selectedChallengeId);
+    console.log("Setting up electric challenge:", challengeId);
     
     if (challengeId === 1) {
-      this.setupSimpleCircuitChallenge();
+      this.setupChallenge1();
+    } else if (challengeId === 2) {
+      this.setupChallenge2();
+    } else if (challengeId === 3) {
+      this.setupChallenge3();
+    } else if (challengeId === 4) {
+      this.setupChallenge4();
+    } else if (challengeId === 5) {
+      this.setupChallenge5();
+    } else if (challengeId === 6) {
+      this.setupChallenge6();
+    } else if (challengeId === 7) {
+      this.setupChallenge7();
+    } else if (challengeId === 8) {
+      this.setupChallenge8();
+    } else if (challengeId === 9) {
+      this.setupChallenge9();
+    } else if (challengeId === 10) {
+      this.setupChallenge10();
     }
+  }
+
+  placeComponentOnGrid(type, gridX, gridY, isPredefined = true) {
+    const worldX = gridX * this.gridSize;
+    const worldY = gridY * this.gridSize;
+    
+    let color;
+    switch(type) {
+      case "battery": color = 0xffcc00; break;
+      case "bulb": color = 0xff0000; break;
+      case "resistor": color = 0xff6600; break;
+      case "switch-on": color = 0x666666; break;
+      case "switch-off": color = 0x666666; break;
+      case "wire": color = 0x0066cc; break;
+      default: color = 0xffffff;
+    }
+    
+    const component = this.createComponent(worldX, worldY, type, color, true);
+    this.workspaceLayer.add(component);
+    this.placedComponents.push(component);
+    component.setData("type", type);
+    component.setData("isPredefined", isPredefined);
+    component.setData("isInPanel", false);
+    component.setData("previousX", worldX);
+    component.setData("previousY", worldY);
+    
+    if (isPredefined) {
+      // Store original positions for reset
+      component.setData("predefinedX", worldX);
+      component.setData("predefinedY", worldY);
+      component.setData("predefinedRotation", 0);
+      this.predefinedComponents.push(component);
+    }
+    
+    const comp = component.getData("logicComponent");
+    if (comp) {
+      this.graph.addComponent(comp);
+    }
+    
+    return component;
+  }
+
+  setupChallenge1() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    
+    this.createChallengePanel(width, "Connect the battery to the bulb\nto light it up using wires");
+  }
+
+  setupChallenge2() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    this.placeComponentOnGrid("switch-off", 20, 9);
+    
+    this.createChallengePanel(width, "Build an open circuit\nSwitch should be OFF (open)");
+  }
+
+  setupChallenge3() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    this.placeComponentOnGrid("switch-on", 20, 9);
+    
+    this.createChallengePanel(width, "Build a closed circuit\nSwitch should be ON (closed)");
+  }
+
+  setupChallenge4() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    this.placeComponentOnGrid("switch-on", 20, 7);
+    
+    this.createChallengePanel(width, "Add a switch you can turn on/off\nUse both switch states");
+  }
+
+  setupChallenge5() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("battery", 18, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    
+    this.createChallengePanel(width, "Connect two batteries in series\nwith the bulb");
+  }
+
+  setupChallenge6() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 22, 7);
+    this.placeComponentOnGrid("bulb", 22, 11);
+    
+    this.createChallengePanel(width, "Connect two bulbs in series\nto the battery");
+  }
+
+  setupChallenge7() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 25, 7);
+    this.placeComponentOnGrid("bulb", 25, 11);
+    
+    this.createChallengePanel(width, "Connect two bulbs in parallel\nto the battery");
+  }
+
+  setupChallenge8() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("resistor", 20, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    
+    this.createChallengePanel(width, "Connect battery, resistor, and bulb\nin a complete circuit");
+  }
+
+  setupChallenge9() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("resistor", 18, 9);
+    this.placeComponentOnGrid("resistor", 21, 9);
+    this.placeComponentOnGrid("bulb", 25, 9);
+    
+    this.createChallengePanel(width, "Complex Series Circuit\nConnect battery, two resistors, and bulb in series");
+  }
+
+  setupChallenge10() {
+    const { width, height } = this.cameras.main;
+    
+    this.placeComponentOnGrid("battery", 15, 9);
+    this.placeComponentOnGrid("bulb", 22, 6);
+    this.placeComponentOnGrid("bulb", 22, 9);
+    this.placeComponentOnGrid("bulb", 22, 12);
+    
+    this.createChallengePanel(width, "Mixed Circuit Challenge\nCombine series and parallel connections");
+  }
+
+  createChallengePanel(width, goalText) {
+    // Position at the top right, above all buttons
+    const challengePanel = this.add.container(width - 140, 140);
+    challengePanel.setDepth(1001);
+
+    const panelBg = this.add.rectangle(0, 0, 280, 150, 0x2a2a4e, 0.95);
+    panelBg.setStrokeStyle(2, 0x3399ff);
+    challengePanel.add(panelBg);
+
+    const title = this.add.text(0, -55, "Challenge Goal:", {
+      fontSize: "14px",
+      color: "#ffff99",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    challengePanel.add(title);
+
+    const goal = this.add.text(0, -35, goalText, {
+      fontSize: "12px",
+      color: "#ffffff",
+      align: "center",
+      wordWrap: { width: 250 }
+    }).setOrigin(0.5);
+    challengePanel.add(goal);
+
+    const submitBtn = this.add.rectangle(0, 35, 220, 40, 0x4caf50);
+    submitBtn.setInteractive({ useHandCursor: true });
+    submitBtn.on('pointerover', () => submitBtn.setFillStyle(0x45a049));
+    submitBtn.on('pointerout', () => submitBtn.setFillStyle(0x4caf50));
+    submitBtn.on('pointerdown', () => this.checkChallengeCompletion());
+    challengePanel.add(submitBtn);
+
+    const submitText = this.add.text(0, 35, "Check Solution", {
+      fontSize: "14px",
+      color: "#ffffff",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    challengePanel.add(submitText);
+
+    this.challengePanel = challengePanel;
   }
 
   setupSimpleCircuitChallenge() {
@@ -1854,8 +2134,277 @@ export default class WorkspaceScene extends Phaser.Scene {
     const challengeId = parseInt(this.selectedChallengeId);
 
     if (challengeId === 1) {
-      this.checkSimpleCircuit();
+      this.checkChallenge1();
+    } else if (challengeId === 2) {
+      this.checkChallenge2();
+    } else if (challengeId === 3) {
+      this.checkChallenge3();
+    } else if (challengeId === 4) {
+      this.checkChallenge4();
+    } else if (challengeId === 5) {
+      this.checkChallenge5();
+    } else if (challengeId === 6) {
+      this.checkChallenge6();
+    } else if (challengeId === 7) {
+      this.checkChallenge7();
+    } else if (challengeId === 8) {
+      this.checkChallenge8();
     }
+  }
+
+  checkChallenge1() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    if (bulbs.length === 0) {
+      this.showChallengeMessage("No bulbs found!", 0xff6b6b);
+      return;
+    }
+
+    const batteries = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "battery"
+    );
+
+    if (batteries.length === 0) {
+      this.showChallengeMessage("No battery found!", 0xff6b6b);
+      return;
+    }
+
+    const anyBulbLit = bulbs.some(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    });
+
+    if (!anyBulbLit) {
+      this.showChallengeMessage("Bulb is not lit! Check connections.", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge2() {
+    this.runSimulationAndCheck();
+
+    const switches = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "switch"
+    );
+
+    if (switches.length === 0) {
+      this.showChallengeMessage("Add a switch!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    const anyBulbLit = bulbs.some(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    });
+
+    if (anyBulbLit) {
+      this.showChallengeMessage("Circuit should be open! Switch must be OFF.", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge3() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const switches = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "switch"
+    );
+
+    if (switches.length === 0) {
+      this.showChallengeMessage("Add a switch!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    const anyBulbLit = bulbs.some(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    });
+
+    if (!anyBulbLit) {
+      this.showChallengeMessage("Circuit should be closed! Switch must be ON.", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge4() {
+    this.runSimulationAndCheck();
+
+    const switches = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "switch"
+    );
+
+    if (switches.length < 1) {
+      this.showChallengeMessage("Add at least one switch!", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge5() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const batteries = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "battery"
+    );
+
+    if (batteries.length < 2) {
+      this.showChallengeMessage("Need 2 batteries!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    const anyBulbLit = bulbs.some(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    });
+
+    if (!anyBulbLit) {
+      this.showChallengeMessage("Connect batteries in series!", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge6() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    if (bulbs.length < 2) {
+      this.showChallengeMessage("Need 2 bulbs!", 0xff6b6b);
+      return;
+    }
+
+    const bulbsLit = bulbs.filter(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    }).length;
+
+    if (bulbsLit < 2) {
+      this.showChallengeMessage("Both bulbs should be lit in series!", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge7() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    if (bulbs.length < 2) {
+      this.showChallengeMessage("Need 2 bulbs!", 0xff6b6b);
+      return;
+    }
+
+    const bulbsLit = bulbs.filter(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    }).length;
+
+    if (bulbsLit < 2) {
+      this.showChallengeMessage("Both bulbs should be lit in parallel!", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  checkChallenge8() {
+    this.runSimulationAndCheck();
+
+    if (!this.sim) {
+      this.showChallengeMessage("Circuit not complete!", 0xff6b6b);
+      return;
+    }
+
+    const resistors = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "resistor"
+    );
+
+    if (resistors.length === 0) {
+      this.showChallengeMessage("Add a resistor!", 0xff6b6b);
+      return;
+    }
+
+    const bulbs = this.placedComponents.filter(
+      comp => comp.getData("logicComponent")?.type === "bulb"
+    );
+
+    const anyBulbLit = bulbs.some(bulb => {
+      const glow = bulb.getData("bulbGlow");
+      return glow && glow.visible;
+    });
+
+    if (!anyBulbLit) {
+      this.showChallengeMessage("Complete the circuit!", 0xff6b6b);
+      return;
+    }
+
+    this.completeChallengeSuccess();
+  }
+
+  completeChallengeSuccess() {
+    this.showChallengeMessage("Challenge Complete! 🎉", 0x4caf50);
+    this.time.delayedCall(2000, () => {
+      this.cameras.main.fade(300, 0, 0, 0);
+      this.time.delayedCall(300, () => {
+        this.scene.start("ChallengeSelectionScene", { workspaceType: "electric" });
+      });
+    });
   }
 
   checkSimpleCircuit() {
