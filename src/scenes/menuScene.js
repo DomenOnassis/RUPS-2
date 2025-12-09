@@ -54,7 +54,7 @@ export default class MenuScene extends Phaser.Scene {
         this.add.rectangle(rectX - gapWidth / 2 - halfBottomWidth / 2, bottomWireY, halfBottomWidth, wireThickness, wireColor);
         this.add.rectangle(rectX + gapWidth / 2 + halfBottomWidth / 2, bottomWireY, halfBottomWidth, wireThickness, wireColor);
 
-        // stikalo
+        // switch
         const switchOffsetY = -18.5;
         this.switchButton = this.add.image(rectX, bottomWireY + switchOffsetY, 'switch-off')
             .setScale(0.7)

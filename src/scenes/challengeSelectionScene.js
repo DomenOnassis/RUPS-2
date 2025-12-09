@@ -58,45 +58,12 @@ export default class ChallengeSelectionScene extends Phaser.Scene {
       });
   }
 
-  displayPlaceholderChallenges() {
-    const { width, height } = this.cameras.main;
-    const challenges = this.generatePlaceholderChallenges();
-    this.renderChallengeGrid(challenges);
-  }
-
-  generatePlaceholderChallenges() {
-    if (this.workspaceType === 'electric') {
-      return [
-        { id: 1, title: 'Simple Circuit', description: 'Connect a battery and a bulb', difficulty: 1 },
-        { id: 2, title: 'Series Circuit', description: 'Connect 2 bulbs in series', difficulty: 2 },
-        { id: 3, title: 'Parallel Circuit', description: 'Connect 2 bulbs in parallel', difficulty: 3 },
-        { id: 4, title: 'Switch Control', description: 'Add a switch to control the bulb', difficulty: 4 },
-        { id: 5, title: 'Resistor Network', description: 'Build a circuit with resistors', difficulty: 5 },
-        { id: 6, title: 'Complex Series', description: 'Multiple components in series', difficulty: 6 },
-        { id: 7, title: 'Mixed Circuit', description: 'Combine series and parallel', difficulty: 7 },
-        { id: 8, title: 'Voltage Division', description: 'Create voltage divider circuit', difficulty: 8 },
-        { id: 9, title: 'Bridge Circuit', description: 'Build a Wheatstone bridge', difficulty: 9 },
-        { id: 10, title: 'Advanced Design', description: 'Complex multi-component circuit', difficulty: 10 }
-      ];
-    } else {
-      return [
-        { id: 11, title: 'AND Gate', description: 'Implement an AND logic gate', difficulty: 1 },
-        { id: 12, title: 'OR Gate', description: 'Implement an OR logic gate', difficulty: 2 },
-        { id: 13, title: 'NOT Gate', description: 'Implement a NOT logic gate', difficulty: 3 },
-        { id: 14, title: 'XOR Gate', description: 'Implement an XOR logic gate', difficulty: 4 },
-        { id: 15, title: 'Truth Table 1', description: 'Match the given truth table', difficulty: 5 },
-        { id: 16, title: 'Truth Table 2', description: 'Design circuit for complex truth table', difficulty: 6 },
-        { id: 17, title: 'Multi-Gate', description: 'Combine multiple gate types', difficulty: 7 },
-        { id: 18, title: 'Adder Circuit', description: 'Build a binary adder', difficulty: 8 },
-        { id: 19, title: 'Multiplexer', description: 'Design a multiplexer circuit', difficulty: 9 },
-        { id: 20, title: 'Advanced Logic', description: 'Complex logic design challenge', difficulty: 10 }
-      ];
-    }
-  }
-
   displayChallenges() {
     if (this.challenges.length === 0) {
-      this.displayPlaceholderChallenges();
+      this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'No challenges available', {
+        fontSize: '24px',
+        color: '#ffffff'
+      }).setOrigin(0.5);
     } else {
       this.renderChallengeGrid(this.challenges);
     }

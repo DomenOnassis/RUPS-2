@@ -12,6 +12,12 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     this.maxHistory = 20;
   }
 
+  init() {
+    this.selectedChallengeId = localStorage.getItem("selectedChallengeId");
+    this.selectedChallengeTitle = localStorage.getItem("selectedChallengeTitle");
+    this.mode = localStorage.getItem("mode") || "sandbox";
+  }
+
   preload() {
     this.load.image("and", "src/components/logic/and.png");
     this.load.image("nand", "src/components/logic/nand.png");
@@ -52,8 +58,9 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     this.workspaceOffsetX = 0;
     this.workspaceOffsetY = 0;
 
+    const modeTitle = this.mode === "challenge" ? "CHALLENGE" : "SANDBOX";
     const panelTitle = this.add
-      .text(100, 30, "SANDBOX", {
+      .text(100, 30, modeTitle, {
         fontSize: "24px",
         fontStyle: "bold",
         color: "#ffffff",
@@ -78,6 +85,18 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       this.createComponent(100, comp.y, comp.type);
     });
 
+    if (this.mode === "challenge" && this.selectedChallengeTitle) {
+      this.add.text(width / 2, 20, `Challenge: ${this.selectedChallengeTitle}`, {
+        fontSize: "18px",
+        color: "#000000",
+        fontStyle: "bold",
+        backgroundColor: "#ffff99",
+        padding: { x: 15, y: 8 }
+      }).setOrigin(0.5).setDepth(500);
+    }
+
+    this.initializeChallenge();
+
     const backButton = this.add
       .text(40, height - 60, "↩ Back", {
         fontSize: "20px",
@@ -91,7 +110,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
     // Zoom buttons
     const makeButton = (x, y, label, onClick) => {
-      const buttonWidth = 120;
+      const buttonWidth = 180;
       const buttonHeight = 40;
       const cornerRadius = 8;
 
@@ -139,18 +158,30 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       return { bg, text };
     };
 
-    makeButton(width - 100, height - 330, "Debug Ports", () =>
-      this.toggleDebugPorts()
-    );
-    makeButton(width - 100, height - 280, "Test Circuit", () =>
-      this.testCircuit()
-    );
-    makeButton(width - 100, height - 230, "Clear Output", () =>
-      this.clearOutput()
-    );
-    makeButton(width - 100, height - 180, "Zoom +", () => this.zoomIn());
-    makeButton(width - 100, height - 130, "Zoom -", () => this.zoomOut());
-    makeButton(width - 100, height - 80, "Reset", () => this.resetZoom());
+    if (this.mode === "challenge") {
+      makeButton(width - 100, 350, "Test Circuit", () =>
+        this.testCircuit()
+      );
+      makeButton(width - 100, 420, "Clear Output", () =>
+        this.clearOutput()
+      );
+      makeButton(width - 100, 490, "Leaderboard", () =>
+        this.scene.start("ScoreboardScene", { cameFromMenu: false })
+      );
+    } else {
+      makeButton(width - 100, height - 330, "Debug Ports", () =>
+        this.toggleDebugPorts()
+      );
+      makeButton(width - 100, height - 280, "Test Circuit", () =>
+        this.testCircuit()
+      );
+      makeButton(width - 100, height - 230, "Clear Output", () =>
+        this.clearOutput()
+      );
+      makeButton(width - 100, height - 180, "Zoom +", () => this.zoomIn());
+      makeButton(width - 100, height - 130, "Zoom -", () => this.zoomOut());
+      makeButton(width - 100, height - 80, "Reset", () => this.resetZoom());
+    }
 
     // Debug mode
     this.debugPortsVisible = false;
@@ -159,6 +190,10 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     this.input.keyboard.on("keydown-DELETE", () => {
       if (this._hoveredComponent) {
         const comp = this._hoveredComponent;
+        // Prevent deletion of predefined challenge components
+        if (comp.getData("isPredefined")) {
+          return;
+        }
         const snapshot = {
           uid: comp.getData("uid"),
           type: comp.getData("type"),
@@ -807,6 +842,12 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
           if (valueText) valueText.setFontSize("16px");
         }
 
+        // Add component to workspace layer BEFORE creating replacement
+        // This ensures the component is properly reparented with correct coordinates
+        if (this.workspaceLayer && !component.getData("isInPanel")) {
+          this.workspaceLayer.add(component);
+        }
+
         // Create new component in panel to replace the one being placed
         this.createComponent(
           component.getData("originalX"),
@@ -816,11 +857,6 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
         this.placedComponents.push(component);
         this.saveState('component_placed');
-
-        // Add component to workspace layer
-        if (this.workspaceLayer && !component.getData("isInPanel")) {
-          this.workspaceLayer.add(component);
-        }
 
         this.pushAction({
           type: "add",
@@ -1059,6 +1095,8 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         ? null
         : componentImage;
     this.attachEventHandlers(component, imageRef, type);
+    
+    return component;
   }
 
   testCircuit() {
@@ -1494,4 +1532,151 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       this.debugGraphics = null;
     }
   }
+
+  initializeChallenge() {
+    if (this.mode !== "challenge" || !this.selectedChallengeId) return;
+
+    // Reset zoom and position for consistency
+    this.resetZoom();
+
+    const challengeId = parseInt(this.selectedChallengeId);
+    
+    if (challengeId === 11) {
+      this.setupANDGateChallenge();
+    }
+  }
+
+  setupANDGateChallenge() {
+    const { width, height } = this.cameras.main;
+
+    // Don't pre-place AND gate - let users build from scratch
+    // Just show the challenge panel with instructions
+
+    // Position aligned with right side buttons
+    const challengePanel = this.add.container(width - 140, 200);
+    challengePanel.setDepth(1001);
+
+    const panelBg = this.add.rectangle(0, 0, 280, 180, 0x2a2a4e, 0.95);
+    panelBg.setStrokeStyle(2, 0x3399ff);
+    challengePanel.add(panelBg);
+
+    const title = this.add.text(0, -70, "Challenge Goal:", {
+      fontSize: "14px",
+      color: "#ffff99",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    challengePanel.add(title);
+
+    const goal = this.add.text(0, -45, "Implement an AND logic gate\nConnect inputs and create output", {
+      fontSize: "12px",
+      color: "#ffffff",
+      align: "center",
+      wordWrap: { width: 250 }
+    }).setOrigin(0.5);
+    challengePanel.add(goal);
+
+    const submitBtn = this.add.rectangle(0, 45, 220, 40, 0x4caf50);
+    submitBtn.setInteractive({ useHandCursor: true });
+    submitBtn.on('pointerover', () => submitBtn.setFillStyle(0x45a049));
+    submitBtn.on('pointerout', () => submitBtn.setFillStyle(0x4caf50));
+    submitBtn.on('pointerdown', () => this.checkChallengeCompletion());
+    challengePanel.add(submitBtn);
+
+    const submitText = this.add.text(0, 45, "Check Solution", {
+      fontSize: "14px",
+      color: "#ffffff",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+    challengePanel.add(submitText);
+
+    this.challengePanel = challengePanel;
+  }
+
+  checkChallengeCompletion() {
+    if (!this.selectedChallengeId) return;
+
+    const challengeId = parseInt(this.selectedChallengeId);
+
+    if (challengeId === 11) {
+      this.checkANDGate();
+    }
+  }
+
+  checkANDGate() {
+    const andGates = this.placedComponents.filter(comp => comp.getData("type") === "and");
+
+    if (andGates.length === 0) {
+      this.showChallengeMessage("No AND gate found!", 0xff6b6b);
+      return;
+    }
+
+    // For AND gate challenge, check that there are at least 2 input components
+    const inputComponents = this.placedComponents.filter(comp => 
+      comp.getData("type") === "input-1" || comp.getData("type") === "input-0"
+    );
+
+    if (inputComponents.length < 2) {
+      this.showChallengeMessage("Add at least 2 inputs to the AND gate", 0xffa500);
+      return;
+    }
+
+    // Check if there's an output component
+    const outputComponents = this.placedComponents.filter(comp => comp.getData("type") === "output");
+    if (outputComponents.length === 0) {
+      this.showChallengeMessage("Add an output component to show the result", 0xffa500);
+      return;
+    }
+
+    this.showChallengeMessage("Challenge Complete! 🎉", 0x4caf50);
+    this.time.delayedCall(2000, () => {
+      this.cameras.main.fade(300, 0, 0, 0);
+      this.time.delayedCall(300, () => {
+        this.scene.start("ChallengeSelectionScene", { workspaceType: "logic" });
+      });
+    });
+  }
+
+  showChallengeMessage(text, color) {
+    const { width, height } = this.cameras.main;
+    
+    if (this.challengeMessage) {
+      this.challengeMessage.destroy();
+    }
+    if (this.challengeMessageText) {
+      this.challengeMessageText.destroy();
+    }
+
+    this.challengeMessage = this.add.rectangle(width / 2, height / 2 - 150, 400, 80, color, 0.9);
+    this.challengeMessage.setStrokeStyle(3, 0xffffff);
+    this.challengeMessage.setDepth(2000);
+
+    this.challengeMessageText = this.add.text(width / 2, height / 2 - 150, text, {
+      fontSize: "24px",
+      color: "#ffffff",
+      fontStyle: "bold",
+      align: "center"
+    }).setOrigin(0.5).setDepth(2001);
+
+    this.tweens.add({
+      targets: this.challengeMessage,
+      alpha: 1,
+      duration: 300
+    });
+
+    // Auto-hide message after 3 seconds
+    this.time.delayedCall(3000, () => {
+      if (this.challengeMessage) {
+        this.tweens.add({
+          targets: [this.challengeMessage, this.challengeMessageText],
+          alpha: 0,
+          duration: 300,
+          onComplete: () => {
+            if (this.challengeMessage) this.challengeMessage.destroy();
+            if (this.challengeMessageText) this.challengeMessageText.destroy();
+          }
+        });
+      }
+    });
+  }
 }
+
