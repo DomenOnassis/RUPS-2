@@ -377,6 +377,11 @@ export default class LabScene extends Phaser.Scene {
       fontSize: '30px',
       color: '#666'
     }).setOrigin(0.5).setDepth(1005).setInteractive({ useHandCursor: true });
+
+    const backBtn = this.add.text(width / 2 - 360, height / 2 - 175, '←', {
+      fontSize: '30px',
+      color: '#666'
+    }).setOrigin(0.5).setDepth(1005).setInteractive({ useHandCursor: true });
     
     sandboxBtn.on('pointerover', () => {
       sandboxBtnBg.clear();
@@ -437,12 +442,20 @@ export default class LabScene extends Phaser.Scene {
       challengeBtn.destroy();
       challengeDesc.destroy();
       challengeBtnBg.destroy();
-      closeBtn.destroy();
+      backBtn.destroy();
     };
     
     closeBtn.on('pointerover', () => closeBtn.setStyle({ color: '#333' }));
     closeBtn.on('pointerout', () => closeBtn.setStyle({ color: '#666' }));
     closeBtn.on('pointerdown', closeModal);
+    
+    backBtn.on('pointerover', () => backBtn.setStyle({ color: '#333' }));
+    backBtn.on('pointerout', () => backBtn.setStyle({ color: '#666' }));
+    backBtn.on('pointerdown', () => {
+      closeModal();
+      this.showWorkspaceSelectionModal();
+    });
+    
     overlay.on('pointerdown', closeModal);
   }
 }
