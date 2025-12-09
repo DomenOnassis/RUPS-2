@@ -15,6 +15,8 @@ class ChallengeProgress(SQLModel, table=True):
     user_id: int
     challenge_id: int
     completed: bool = False
+    completion_count: int = Field(default=0)
+    points_earned: int = Field(default=0)
 
 
 class ChallengeAttempt(SQLModel, table=True):

@@ -2042,8 +2042,8 @@ export default class WorkspaceScene extends Phaser.Scene {
   }
 
   createChallengePanel(width, goalText) {
-    // Position at the top right, above all buttons
-    const challengePanel = this.add.container(width - 140, 140);
+    // Position at the top right, above all buttons, offset left by 10px from edge
+    const challengePanel = this.add.container(width - 150, 140);
     challengePanel.setDepth(1001);
 
     const panelBg = this.add.rectangle(0, 0, 280, 150, 0x2a2a4e, 0.95);
@@ -2398,6 +2398,23 @@ export default class WorkspaceScene extends Phaser.Scene {
   }
 
   completeChallengeSuccess() {
+    // Mark challenge as complete on server
+    const token = localStorage.getItem('token');
+    const challengeId = parseInt(this.selectedChallengeId);
+    
+    fetch(`http://localhost:8000/challenges/complete/${challengeId}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log('Challenge marked complete, points awarded:', data.points_awarded);
+    })
+    .catch(err => console.error('Error marking challenge complete:', err));
+    
     this.showChallengeMessage("Challenge Complete! 🎉", 0x4caf50);
     this.time.delayedCall(2000, () => {
       this.cameras.main.fade(300, 0, 0, 0);

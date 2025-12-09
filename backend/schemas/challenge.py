@@ -32,3 +32,19 @@ class ProgressCreate(BaseModel):
 
 class ProgressRead(BaseModel):
     completed: List[int]
+
+class ChallengeStatsRead(BaseModel):
+    challenge_id: int
+    completion_count: int
+    points_earned: int
+
+class UserStatsRead(BaseModel):
+    total_points: int
+    challenges_completed: int
+    challenge_stats: Dict[int, ChallengeStatsRead]
+
+
+class LeaderboardEntry(BaseModel):
+    username: str
+    total_points: int
+    challenges_completed: int

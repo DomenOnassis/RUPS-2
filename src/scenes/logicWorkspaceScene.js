@@ -59,27 +59,26 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     this.workspaceOffsetX = 0;
     this.workspaceOffsetY = 0;
 
-    const modeTitle = this.mode === "challenge" ? "CHALLENGE" : "SANDBOX";
     const panelTitle = this.add
-      .text(100, 30, modeTitle, {
-        fontSize: "24px",
+      .text(100, 60, "Components", {
+        fontSize: "18px",
         fontStyle: "bold",
         color: "#ffffff",
       })
       .setOrigin(0.5);
 
     const components = [
-      { type: "input-1", y: 80 },
-      { type: "input-0", y: 140 },
-      { type: "output", y: 200 },
-      { type: "wire", y: 260 },
-      { type: "and", y: 330 },
-      { type: "or", y: 400 },
-      { type: "not", y: 470 },
-      { type: "nand", y: 540 },
-      { type: "nor", y: 610 },
-      { type: "xor", y: 680 },
-      { type: "xnor", y: 750 },
+      { type: "input-1", y: 100 },
+      { type: "input-0", y: 160 },
+      { type: "output", y: 220 },
+      { type: "wire", y: 280 },
+      { type: "and", y: 350 },
+      { type: "or", y: 420 },
+      { type: "not", y: 490 },
+      { type: "nand", y: 560 },
+      { type: "nor", y: 630 },
+      { type: "xor", y: 700 },
+      { type: "xnor", y: 770 },
     ];
 
     components.forEach((comp) => {
@@ -178,14 +177,14 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     this.initializeChallenge();
 
     const backButton = this.add
-      .text(40, height - 60, "↩ Back", {
+      .text(12, 10, "↩ Back", {
         fontSize: "20px",
-        color: "#ffffff",
+        color: "#387affff",
       })
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true })
-      .on("pointerover", () => backButton.setStyle({ color: "#aaaaaa" }))
-      .on("pointerout", () => backButton.setStyle({ color: "#ffffff" }))
+      .on("pointerover", () => backButton.setStyle({ color: "#0054fdff" }))
+      .on("pointerout", () => backButton.setStyle({ color: "#387affff" }))
       .on("pointerdown", () => {
         if (this.mode === "challenge") {
           this.scene.start("ChallengeSelectionScene", { workspaceType: "logic" });
@@ -866,7 +865,6 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         );
 
         this.placedComponents.push(component);
-        this.saveState('component_placed');
 
         this.pushAction({
           type: "add",
@@ -1826,8 +1824,8 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   createLogicChallengePanel(width, goalText) {
-    // Position at the top right, above all buttons
-    const challengePanel = this.add.container(width - 100, 140);
+    // Position at the top right, above all buttons, offset left to avoid edge and back button
+    const challengePanel = this.add.container(width - 150, 140);
     challengePanel.setDepth(1001);
 
     const panelBg = this.add.rectangle(0, 0, 280, 180, 0x2a2a4e, 0.95);
@@ -2137,6 +2135,23 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   completeLogicChallengeSuccess() {
+    // Mark challenge as complete on server
+    const token = localStorage.getItem('token');
+    const challengeId = parseInt(this.selectedChallengeId);
+    
+    fetch(`http://localhost:8000/challenges/complete/${challengeId}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log('Challenge marked complete, points awarded:', data.points_awarded);
+    })
+    .catch(err => console.error('Error marking challenge complete:', err));
+    
     this.showChallengeMessage("Challenge Complete! 🎉", 0x4caf50);
     this.time.delayedCall(2000, () => {
       this.cameras.main.fade(300, 0, 0, 0);
