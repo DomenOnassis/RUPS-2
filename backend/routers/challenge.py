@@ -3,7 +3,7 @@ from sqlmodel import Session
 from database import get_session
 from routers.auth import get_current_user
 from models.challenge import Challenge
-from schemas.challenge import AttemptCreate, AttemptRead, ChallengeCreate, ProgressCreate, ProgressRead
+from schemas.challenge import AttemptCreate, AttemptRead, ChallengeCreate, ProgressCreate, ProgressRead, UserStatsRead, LeaderboardEntry
 from crud.challenge import (
     create_challenge,
     delete_attempt,
@@ -14,6 +14,8 @@ from crud.challenge import (
     mark_challenge_complete,
     save_attempt,
     get_user_progress,
+    get_user_stats,
+    get_leaderboard,
 )
 
 router = APIRouter(prefix="/challenges", tags=["challenges"])
@@ -47,6 +49,20 @@ def get_progress_endpoint(
     completed = get_user_progress(session, user.id)
     return ProgressRead(completed=completed)
 
+@router.get("/stats", summary="Get user's challenge stats")
+def get_stats_endpoint(
+    session: Session = Depends(get_session),
+    user = Depends(get_current_user)
+):
+    return get_user_stats(session, user.id)
+
+@router.get("/leaderboard/top", summary="Get top 10 leaderboard", response_model=list[LeaderboardEntry])
+def get_leaderboard_endpoint(
+    session: Session = Depends(get_session),
+    limit: int = 10
+):
+    return get_leaderboard(session, limit)
+
 @router.post("/complete/{challenge_id}", status_code=status.HTTP_200_OK, summary="Mark challenge complete")
 def mark_complete_endpoint(
     challenge_id: int,
@@ -59,7 +75,8 @@ def mark_complete_endpoint(
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
 
-    return mark_challenge_complete(session, user.id, challenge_id)
+    result = mark_challenge_complete(session, user.id, challenge_id)
+    return result
 
 @router.post("/attempt", response_model=AttemptRead, status_code=status.HTTP_201_CREATED)
 def save_attempt_endpoint(

@@ -7,147 +7,139 @@ export default class ScoreboardScene extends Phaser.Scene {
 
     init(data) {
         this.cameFromMenu = data.cameFromMenu || false;
-    }
-
-    preload() {
-        // avatarji
-        for (let i = 1; i <= 14; i++) {
-            this.load.image(`avatar${i}`, `src/avatars/avatar${i}.png`);
-        }
+        this.leaderboard = [];
     }
 
     create() {
         const { width, height } = this.scale;
 
-        // ozadje
-        // svetla stena
-        this.add.rectangle(0, 0, width, height - 150, 0xe8e8e8).setOrigin(0);
-        // tla
-        this.add.rectangle(0, height - 150, width, 150, 0xd4c4a8).setOrigin(0);
+        // Background
+        this.add.rectangle(0, 0, width, height, 0x1a1a2e)
+            .setOrigin(0)
+            .setDepth(0);
 
-        // miza
-        const tableX = width / 2;
-        const tableY = height / 2 + 50;
-        const tableWidth = 600;
-        const tableHeight = 280;
-
-        this.add.rectangle(tableX, tableY, tableWidth, 30, 0x8b4513).setOrigin(0.5);
-        const surface = this.add.rectangle(tableX, tableY + 15, tableWidth - 30, tableHeight - 30, 0xa0826d).setOrigin(0.5, 0);
-
-        // mreža
-        const grid = this.add.graphics();
-        grid.lineStyle(1, 0x8b7355, 0.3);
-        const gridSize = 30;
-        const gridStartX = tableX - (tableWidth - 30) / 2;
-        const gridStartY = tableY + 15;
-        const gridEndX = tableX + (tableWidth - 30) / 2;
-        const gridEndY = tableY + 15 + (tableHeight - 30);
-
-        for (let x = gridStartX; x <= gridEndX; x += gridSize) {
-            grid.beginPath();
-            grid.moveTo(x, gridStartY);
-            grid.lineTo(x, gridEndY);
-            grid.strokePath();
-        }
-        for (let y = gridStartY; y <= gridEndY; y += gridSize) {
-            grid.beginPath();
-            grid.moveTo(gridStartX, y);
-            grid.lineTo(gridEndX, y);
-            grid.strokePath();
-        }
-
-        // nogice mize
-        const legWidth = 20;
-        const legHeight = 150;
-        this.add.rectangle(tableX - tableWidth / 2 + 40, tableY + tableHeight / 2 + 20, legWidth, legHeight, 0x654321);
-        this.add.rectangle(tableX + tableWidth / 2 - 40, tableY + tableHeight / 2 + 20, legWidth, legHeight, 0x654321);
-
-        // okvir
-        const panelWidth = 600;
-        const panelHeight = 400;
-        const panelX = width / 2 - panelWidth / 2;
-        const panelY = height / 2 - panelHeight / 2 - 30;
-
-        const panel = this.add.graphics();
-        panel.fillStyle(0xffffff, 0.92);
-        panel.fillRoundedRect(panelX, panelY, panelWidth, panelHeight, 25);
-        panel.lineStyle(3, 0xcccccc, 1);
-        panel.strokeRoundedRect(panelX, panelY, panelWidth, panelHeight, 25);
-
-        // naslov
-        this.add.text(width / 2, panelY + 35, 'LESTVICA', {
-            fontFamily: 'Arial',
-            fontSize: '36px',
-            fontStyle: 'bold',
-            color: '#222'
+        // Title
+        this.add.text(width / 2, 40, 'Leaderboard', {
+            fontSize: '42px',
+            color: '#ffffff',
+            fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        // lestvica
-        const users = JSON.parse(localStorage.getItem('users')) || [];
-        const userLoged = localStorage.getItem('username');
+        // Subtitle
+        this.add.text(width / 2, 85, 'Top 10 Players', {
+            fontSize: '20px',
+            color: '#cccccc'
+        }).setOrigin(0.5);
 
-        // HARDCODED TESTIRANJE
-        const userToUpdate = users.find(u => u.username === 'enej');
-        if (userToUpdate) {
-            userToUpdate.score = 130;
-            localStorage.setItem('users', JSON.stringify(users));
-        }
+        // Back button
+        const backBtn = this.add.text(30, 40, '← Back', {
+            fontSize: '18px',
+            color: '#3399ff',
+            fontStyle: 'bold'
+        }).setInteractive({ useHandCursor: true });
 
-        users.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-
-        users.forEach((user, index) => {
-            const y = panelY + 90 + index * 35;
-            const rank = index + 1;
-
-            // avatar
-            if (user.profilePic) {
-                this.add.image(panelX + 60, y + 15, user.profilePic)
-                    .setDisplaySize(40, 40)
-                    .setOrigin(0.5);
-            }
-
-            // mesto
-            this.add.text(panelX + 100, y + 5, `${rank}.`, { fontSize: '22px', color: '#444' });
-
-            // ime
-            const style = (user.username === userLoged)
-                ? { fontSize: '22px', color: '#0f5cad', fontStyle: 'bold' }
-                : { fontSize: '22px', color: '#222' };
-            this.add.text(panelX + 140, y + 5, user.username, style);
-
-            // točke
-            this.add.text(panelX + panelWidth - 100, y + 5, `${user.score ?? 0}`, {
-                fontSize: '22px',
-                color: '#0044cc'
-            }).setOrigin(1, 0);
+        backBtn.on('pointerover', () => backBtn.setStyle({ color: '#66ccff' }));
+        backBtn.on('pointerout', () => backBtn.setStyle({ color: '#3399ff' }));
+        backBtn.on('pointerdown', () => {
+            this.scene.start('MenuScene');
         });
 
-        // ESC tipka
-        this.input.keyboard.on('keydown-ESC', () => {
-            if (this.cameFromMenu) {
-                this.scene.start('LabScene');
-            }
-            else {
-                this.scene.start('LabScene');
-            }
-        });
+        // Loading indicator
+        const loadingText = this.add.text(width / 2, height / 2, 'Loading leaderboard...', {
+            fontSize: '20px',
+            color: '#cccccc'
+        }).setOrigin(0.5);
 
-        // gumb
-        if (this.cameFromMenu === false) {
-            const backButton = this.add.text(width / 2, panelY + panelHeight - 40, '↩ Nazaj', {
-                fontFamily: 'Arial',
-                fontSize: '22px',
-                color: '#0066ff',
-                padding: { x: 20, y: 10 }
+        // Fetch leaderboard
+        this.loadLeaderboard(loadingText);
+    }
+
+    loadLeaderboard(loadingText) {
+        fetch('http://localhost:8000/challenges/leaderboard/top')
+            .then(res => res.json())
+            .then(data => {
+                this.leaderboard = data;
+                loadingText.destroy();
+                this.displayLeaderboard();
             })
-                .setOrigin(0.5)
-                .setInteractive({ useHandCursor: true })
-                .on('pointerover', () => backButton.setStyle({ color: '#0044cc' }))
-                .on('pointerout', () => backButton.setStyle({ color: '#0066ff' }))
-                .on('pointerdown', () => {
-                    this.scene.start('WorkspaceScene');
-                });
+            .catch(error => {
+                console.error('Failed to load leaderboard:', error);
+                loadingText.setText('Failed to load leaderboard');
+            });
+    }
+
+    displayLeaderboard() {
+        const { width, height } = this.scale;
+        
+        if (this.leaderboard.length === 0) {
+            this.add.text(width / 2, height / 2, 'No players yet!', {
+                fontSize: '24px',
+                color: '#ffffff'
+            }).setOrigin(0.5);
+            return;
         }
 
+        const startY = 140;
+        const entryHeight = 60;
+        const entryWidth = Math.min(600, width - 100);
+        const startX = (width - entryWidth) / 2;
+
+        this.leaderboard.forEach((entry, index) => {
+            const y = startY + index * (entryHeight + 10);
+            
+            // Determine rank colors
+            let rankColor = 0xffffff;
+            let rankBg = 0x2a2a4e;
+            if (index === 0) {
+                rankColor = 0xffd700; // Gold
+                rankBg = 0x3d3520;
+            } else if (index === 1) {
+                rankColor = 0xc0c0c0; // Silver
+                rankBg = 0x2d2d3d;
+            } else if (index === 2) {
+                rankColor = 0xcd7f32; // Bronze
+                rankBg = 0x332d27;
+            }
+
+            // Entry background
+            const entryBg = this.add.rectangle(startX, y, entryWidth, entryHeight, rankBg)
+                .setOrigin(0)
+                .setStrokeStyle(2, rankColor, 0.5);
+
+            // Rank number
+            const rankText = this.add.text(startX + 30, y + entryHeight / 2, `#${index + 1}`, {
+                fontSize: '28px',
+                color: `#${rankColor.toString(16).padStart(6, '0')}`,
+                fontStyle: 'bold'
+            }).setOrigin(0.5);
+
+            // Username
+            const username = this.add.text(startX + 90, y + entryHeight / 2 - 8, entry.username, {
+                fontSize: '22px',
+                color: '#ffffff',
+                fontStyle: 'bold'
+            }).setOrigin(0, 0.5);
+
+            // Challenges completed
+            const challenges = this.add.text(startX + 90, y + entryHeight / 2 + 12, `${entry.challenges_completed} challenges`, {
+                fontSize: '14px',
+                color: '#aaaaaa'
+            }).setOrigin(0, 0.5);
+
+            // Points
+            const points = this.add.text(startX + entryWidth - 30, y + entryHeight / 2, `⭐ ${entry.total_points}`, {
+                fontSize: '20px',
+                color: '#ffd700',
+                fontStyle: 'bold'
+            }).setOrigin(1, 0.5);
+
+            // Trophy icon for top 3
+            if (index < 3) {
+                const trophyIcon = index === 0 ? '🏆' : index === 1 ? '🥈' : '🥉';
+                this.add.text(startX + 10, y + entryHeight / 2, trophyIcon, {
+                    fontSize: '24px'
+                }).setOrigin(0.5);
+            }
+        });
     }
 }

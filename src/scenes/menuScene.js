@@ -154,7 +154,7 @@ export default class MenuScene extends Phaser.Scene {
 
         if (this.isSwitchOn) {
             this.switchButton.setTexture('switch-on');
-            this.switchButton.y += 14;
+            // Don't adjust position - both images should have same origin
 
             // bel napis
             this.title.setStyle({
@@ -174,7 +174,7 @@ export default class MenuScene extends Phaser.Scene {
 
         } else {
             this.switchButton.setTexture('switch-off');
-            this.switchButton.y -= 14;
+            // Don't adjust position - both images should have same origin
             this.title.setStyle({
                 color: '#222222',
                 shadow: { offsetX: 0, offsetY: 0, color: '#00000000', blur: 0, fill: false }
@@ -208,7 +208,7 @@ export default class MenuScene extends Phaser.Scene {
         this.startButtonBackground.setDepth(-1); 
 
         // naslov
-        this.title = this.add.text(rectX, rectY, 'LABORATORIJ', { 
+        this.title = this.add.text(rectX, rectY, 'MASTER-CIRCUIT', { 
             fontFamily: 'Arial', 
             fontSize: '72px', 
             fontStyle: 'bold', 
@@ -216,7 +216,7 @@ export default class MenuScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // gumb
-        this.loginButton = this.add.text(rectX, rectY + 100, '▶ Začni igro', {
+        this.loginButton = this.add.text(rectX, rectY + 100, '▶ Start', {
             fontFamily: 'Arial',
             fontSize: '32px',
             color: '#aaaaaa', 
