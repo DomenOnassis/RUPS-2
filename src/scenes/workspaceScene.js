@@ -1120,10 +1120,12 @@ export default class WorkspaceScene extends Phaser.Scene {
         !component.getData("isInPanel") &&
         component.parentContainer === this.workspaceLayer
       ) {
-        component.x =
-          (dragX - (this.workspaceOffsetX || 0)) / (this.currentZoom || 1);
-        component.y =
-          (dragY - (this.workspaceOffsetY || 0)) / (this.currentZoom || 1);
+        const worldX = pointer.worldX;
+        const worldY = pointer.worldY;
+        const localX = (worldX - this.workspaceOffsetX) / this.currentZoom;
+        const localY = (worldY - this.workspaceOffsetY) / this.currentZoom;
+        component.x = localX;
+        component.y = localY;
       } else {
         component.x = dragX;
         component.y = dragY;
@@ -1138,14 +1140,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         component.destroy();
       } else if (!isInPanel && component.getData("isInPanel")) {
         // s strani na mizo
-        // Convert screen coordinates to workspace coordinates
-        const workspaceX =
-          (component.x - (this.workspaceOffsetX || 0)) /
-          (this.currentZoom || 1);
-        const workspaceY =
-          (component.y - (this.workspaceOffsetY || 0)) /
-          (this.currentZoom || 1);
-        const snapped = this.snapToGrid(workspaceX, workspaceY);
+        const snapped = this.snapToGrid(component.x, component.y);
         const aligned = this.alignToNearbyNodes(component, snapped);
 
         if (this.isPositionOccupied(aligned.x, aligned.y, component)) {
@@ -1190,21 +1185,8 @@ export default class WorkspaceScene extends Phaser.Scene {
         this.rebuildGraph();
       } else if (!component.getData("isInPanel")) {
         // na mizi in se postavi na mrežo
-        // Convert screen coordinates to workspace coordinates
-        const workspaceX =
-          (component.x - (this.workspaceOffsetX || 0)) /
-          (this.currentZoom || 1);
-        const workspaceY =
-          (component.y - (this.workspaceOffsetY || 0)) /
-          (this.currentZoom || 1);
-        const snapped = this.snapToGrid(workspaceX, workspaceY);
+        const snapped = this.snapToGrid(component.x, component.y);
         const aligned = this.alignToNearbyNodes(component, snapped);
-
-        // Convert aligned position back to screen coordinates for comparison
-        const alignedScreenX =
-          aligned.x * (this.currentZoom || 1) + (this.workspaceOffsetX || 0);
-        const alignedScreenY =
-          aligned.y * (this.currentZoom || 1) + (this.workspaceOffsetY || 0);
 
         if (this.isPositionOccupied(aligned.x, aligned.y, component)) {
           const previousX = component.getData("previousX") || component.x;
@@ -1214,7 +1196,6 @@ export default class WorkspaceScene extends Phaser.Scene {
         } else {
           component.setData("previousX", component.x);
           component.setData("previousY", component.y);
-          // Store workspace coordinates
           component.x = aligned.x;
           component.y = aligned.y;
         }
