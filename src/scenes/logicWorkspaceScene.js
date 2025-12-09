@@ -91,8 +91,8 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
     // Zoom buttons
     const makeButton = (x, y, label, onClick) => {
-      const buttonWidth = 120;
-      const buttonHeight = 40;
+      const buttonWidth = 140;
+      const buttonHeight = 45;
       const cornerRadius = 8;
 
       const bg = this.add.graphics();
@@ -138,7 +138,12 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
       return { bg, text };
     };
-
+    makeButton(width - 100, height - 430, "Save Circuit", () =>
+      this.openSaveModal()
+    );
+    makeButton(width - 100, height - 380, "Load Circuit", () =>
+      this.openLoadModal()
+    );
     makeButton(width - 100, height - 330, "Debug Ports", () =>
       this.toggleDebugPorts()
     );
@@ -1493,5 +1498,213 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       this.debugGraphics.destroy();
       this.debugGraphics = null;
     }
+  }
+    openSaveModal() {
+    const { width, height } = this.cameras.main;
+
+    this.saveModalBg = this.add
+      .rectangle(width / 2, height / 2, 450, 300, 0x000000, 0.9)
+      .setDepth(1003);
+
+    this.saveModalText = this.add
+      .text(width / 2, height / 2 - 40, "Circuit Name:", {
+        fontSize: "20px",
+        color: "#ffffff",
+      })
+      .setOrigin(0.5)
+      .setDepth(1004);
+
+    // HTML INPUT FIELD
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = "Enter circuit name";
+    input.style.position = "absolute";
+    input.style.top = height / 2 - 10 + "px";
+    input.style.left = width / 2 - 120 + "px";
+    input.style.width = "240px";
+    input.style.fontSize = "18px";
+    input.id = "saveCircuitInput";
+    document.body.appendChild(input);
+
+    this.saveConfirm = this.add
+      .text(width / 2, height / 2 + 50, "Save", {
+        fontSize: "22px",
+        backgroundColor: "#ffffff",
+        color: "#000000",
+        padding: { x: 15, y: 5 },
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(1004)
+      .on("pointerdown", () => {
+        const name = input.value.trim();
+        if (name.length > 0) {
+          this.saveCircuit(name);
+        }
+        this.closeSaveModal();
+      });
+
+    this.saveCancel = this.add
+      .text(width / 2, height / 2 + 100, "Cancel", {
+        fontSize: "20px",
+        color: "#ff6666",
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(1004)
+      .on("pointerdown", () => this.closeSaveModal());
+  }
+
+  closeSaveModal() {
+    const input = document.getElementById("saveCircuitInput");
+    if (input) input.remove();
+
+    this.saveModalBg?.destroy();
+    this.saveModalText?.destroy();
+    this.saveConfirm?.destroy();
+    this.saveCancel?.destroy();
+  }
+
+  saveCircuit(name) {
+    const components = this.placedComponents
+      .filter((c) => !c.getData("isInPanel"))
+      .map((c) => ({
+        type: c.getData("type"),
+        x: c.x,
+        y: c.y,
+        rotation: c.getData("rotation") || 0,
+      }));
+
+    fetch("http://localhost:8000/circuits/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + localStorage.getItem("token"),
+      },
+      body: JSON.stringify({
+        name: name,
+        components: components,
+      }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to save circuit");
+        return r.json();
+      })
+      .then(() => {
+        console.log("Circuit saved!");
+        alert("Circuit saved successfully!");
+      })
+      .catch((err) => {
+        console.error(err);
+        alert("Failed to save circuit: " + err.message);
+      });
+  }
+
+  openLoadModal() {
+    const { width, height } = this.cameras.main;
+    this.loadCircuitTexts = [];
+
+    // background
+    this.loadBg = this.add
+      .rectangle(width / 2, height / 2, 500, 350, 0x000000, 0.85)
+      .setOrigin(0.5)
+      .setDepth(2000);
+
+    this.loadTitle = this.add
+      .text(width / 2, height / 2 - 150, "Load Circuit", {
+        fontSize: "26px",
+        color: "#ffffff",
+      })
+      .setOrigin(0.5)
+      .setDepth(2001);
+
+    fetch("http://localhost:8000/circuits/", {
+      headers: {
+        Authorization: "Bearer " + localStorage.getItem("token"),
+      },
+    })
+      .then((r) => r.json())
+      .then((circuits) => {
+        let y = height / 2 - 100;
+
+        circuits.forEach((circuit) => {
+          let entry = this.add
+            .text(width / 2, y, circuit.name, {
+              fontSize: "20px",
+              color: "#aaddff",
+            })
+            .setOrigin(0.5)
+            .setInteractive({ useHandCursor: true })
+            .setDepth(2002)
+            .on("pointerdown", () => {
+              this.fetchAndLoadCircuit(circuit.id);
+              this.closeLoadModal();
+            });
+          this.loadCircuitTexts.push(entry);
+          y += 40;
+        });
+      })
+      .catch((err) => {
+        console.error(err);
+        alert("Failed to load circuits list: " + err.message);
+      });
+
+    this.loadClose = this.add
+      .text(width / 2, height / 2 + 150, "Close", {
+        fontSize: "20px",
+        color: "#ff6666",
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(2002)
+      .on("pointerdown", () => this.closeLoadModal());
+  }
+
+  closeLoadModal() {
+    this.loadBg?.destroy();
+    this.loadTitle?.destroy();
+    this.loadCircuitTexts?.forEach((t) => t.destroy());
+    this.loadCircuitTexts = [];
+    this.loadClose?.destroy();
+  }
+
+  fetchAndLoadCircuit(id) {
+    fetch(`http://localhost:8000/circuits/${id}`, {
+      headers: {
+        Authorization: "Bearer " + localStorage.getItem("token"),
+      },
+    })
+      .then((r) => r.json())
+      .then((circuit) => {
+        this.loadCircuit(circuit.data.components);
+      })
+      .catch((err) => {
+        console.error(err);
+        alert("Failed to load circuit: " + err.message);
+      });
+  }
+
+  loadCircuit(components) {
+    // Clear existing placed components (not panel components)
+    this.placedComponents
+      .filter((c) => !c.getData("isInPanel"))
+      .forEach((c) => c.destroy());
+    this.placedComponents = this.placedComponents.filter((c) =>
+      c.getData("isInPanel")
+    );
+
+    // Create components from loaded data
+    components.forEach((comp) => {
+      const newComp = this.createPlacedFromSnapshot({
+        uid: comp.type + "_" + Math.floor(Math.random() * 999999),
+        type: comp.type,
+        x: comp.x,
+        y: comp.y,
+        rotation: comp.rotation,
+      });
+    });
+
+    console.log("Circuit loaded!");
+    alert("Circuit loaded successfully!");
   }
 }
