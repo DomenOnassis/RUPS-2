@@ -1,4 +1,7 @@
-html, body, #game-container {
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+
+  html, body, #game-container {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -6,12 +9,9 @@ html, body, #game-container {
   overflow: hidden;
 }
 
-body {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
 #game-container canvas {
   display: block;
+  width: 100%;
+  height: 100%;
+}
 }
