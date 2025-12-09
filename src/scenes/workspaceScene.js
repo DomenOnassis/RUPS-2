@@ -307,6 +307,15 @@ export default class WorkspaceScene extends Phaser.Scene {
     // shrani komponente na mizi
     this.placedComponents = [];
     this.gridSize = 40;
+    this.selectedComponent = null; // za izbrano komponento
+    
+    // Undo/Redo system
+    this.undoStack = [];
+    this.redoStack = [];
+    this.maxHistorySize = 10;
+    
+    // Save initial empty state
+    this.saveState('initial_state');
 
     // const scoreButton = this.add.text(this.scale.width / 1.1, 25, 'Lestvica', {
     //   fontFamily: 'Arial',
@@ -411,6 +420,29 @@ export default class WorkspaceScene extends Phaser.Scene {
     // Arrow keys for panning
     this.cursors = this.input.keyboard.createCursorKeys();
     this.panSpeed = 5;
+
+    // Delete key for component deletion
+    this.input.keyboard.on('keydown-DELETE', () => {
+      if (this.selectedComponent && !this.selectedComponent.getData('isInPanel')) {
+        this.deleteComponent(this.selectedComponent);
+        this.selectedComponent = null;
+      }
+    });
+
+    // Undo/Redo keyboard shortcuts
+    this.input.keyboard.on('keydown-Z', (event) => {
+      if (event.ctrlKey) {
+        event.preventDefault();
+        this.undo();
+      }
+    });
+
+    this.input.keyboard.on('keydown-Y', (event) => {
+      if (event.ctrlKey) {
+        event.preventDefault();
+        this.redo();
+      }
+    });
 
     // Mouse wheel zoom
     this.input.on("wheel", (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
@@ -556,6 +588,118 @@ export default class WorkspaceScene extends Phaser.Scene {
       this.gridGraphics.lineTo(endX, y);
       this.gridGraphics.strokePath();
     }
+  }
+
+  // Undo/Redo history management
+  saveState(action) {
+    // Clear redo stack when new action is performed
+    this.redoStack = [];
+    
+    // Save current state
+    const state = {
+      action: action,
+      components: this.placedComponents.map(c => ({
+        type: c.getData("type"),
+        x: c.x,
+        y: c.y,
+        rotation: c.getData("rotation") || 0,
+        id: c.getData("componentId"),
+      }))
+    };
+    
+    this.undoStack.push(state);
+    
+    // Maintain max history size
+    if (this.undoStack.length > this.maxHistorySize) {
+      this.undoStack.shift();
+    }
+  }
+
+  undo() {
+    if (this.undoStack.length === 0) return;
+    
+    // Save current state to redo stack
+    const currentState = {
+      action: 'state',
+      components: this.placedComponents.map(c => ({
+        type: c.getData("type"),
+        x: c.x,
+        y: c.y,
+        rotation: c.getData("rotation") || 0,
+        id: c.getData("componentId"),
+      }))
+    };
+    this.redoStack.push(currentState);
+    
+    // Restore previous state
+    const previousState = this.undoStack.pop();
+    this.restoreState(previousState);
+  }
+
+  redo() {
+    if (this.redoStack.length === 0) return;
+    
+    // Save current state to undo stack
+    const currentState = {
+      action: 'state',
+      components: this.placedComponents.map(c => ({
+        type: c.getData("type"),
+        x: c.x,
+        y: c.y,
+        rotation: c.getData("rotation") || 0,
+        id: c.getData("componentId"),
+      }))
+    };
+    this.undoStack.push(currentState);
+    
+    // Restore next state
+    const nextState = this.redoStack.pop();
+    this.restoreState(nextState);
+  }
+
+  restoreState(state) {
+    // Destroy all current components
+    this.placedComponents.forEach(c => {
+      if (this.workspaceLayer) {
+        this.workspaceLayer.remove(c);
+      }
+      c.destroy();
+    });
+    this.placedComponents = [];
+    this.selectedComponent = null;
+
+    // Recreate components from state
+    state.components.forEach((item) => {
+      const component = this.createComponent(
+        item.x,
+        item.y,
+        item.type,
+        null,
+        true
+      );
+
+      if (!component) return;
+
+      component.x = item.x;
+      component.y = item.y;
+
+      if (item.rotation) {
+        component.setData("rotation", item.rotation);
+        component.angle = item.rotation;
+      }
+
+      component.setData("isInPanel", false);
+      component.setData("componentId", item.id);
+      
+      if (this.workspaceLayer) {
+        this.workspaceLayer.add(component);
+      }
+      
+      this.placedComponents.push(component);
+    });
+
+    // Rebuild graph
+    this.rebuildGraph();
   }
 
   getComponentDetails(type) {
@@ -726,6 +870,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     component.destroy();
     this.rebuildGraph(); // This will check circuit state and update bulbs
     this.checkText.setText("");
+    this.saveState('component_deleted');
   }
 
   turnOffAllBulbs() {
@@ -1054,6 +1199,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     }
 
     component.on("pointerover", () => {
+      this.selectedComponent = component;
       if (component.getData("isInPanel")) {
         // prikaži info okno
         const details = this.getComponentDetails(type);
@@ -1063,14 +1209,22 @@ export default class WorkspaceScene extends Phaser.Scene {
         this.infoWindow.x = x + 120;
         this.infoWindow.y = y;
         this.infoWindow.setVisible(true);
+      } else {
+        // Prikaži info s Delete napokom za komponente na delovni površini
+        const details = this.getComponentDetails(type) + "\n\nPritisni Delete za brisanje";
+        this.infoText.setText(details);
+        this.infoWindow.x = component.x;
+        this.infoWindow.y = component.y - 100;
+        this.infoWindow.setVisible(true);
       }
       component.setScale(1.1);
     });
 
     component.on("pointerout", () => {
-      if (component.getData("isInPanel")) {
-        this.infoWindow.setVisible(false);
+      if (this.selectedComponent === component) {
+        this.selectedComponent = null;
       }
+      this.infoWindow.setVisible(false);
       component.setScale(1);
     });
 
@@ -1095,6 +1249,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     component.setData("color", color);
     component.setData("isInPanel", !fromLoad);
     component.setData("rotation", 0);
+    component.setData("componentId", id); // Unique ID for undo/redo
     if (comp) component.setData("logicComponent", comp);
     component.setData("isDragging", false);
     component.setData("dragMoved", false);
@@ -1183,6 +1338,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         }
         // Rebuild graph and check circuit state for real-time bulb updates
         this.rebuildGraph();
+        this.saveState('component_placed');
       } else if (!component.getData("isInPanel")) {
         // na mizi in se postavi na mrežo
         const snapped = this.snapToGrid(component.x, component.y);
@@ -1203,6 +1359,7 @@ export default class WorkspaceScene extends Phaser.Scene {
         this.updateLogicNodePositions(component);
         // Rebuild graph and check circuit state for real-time bulb updates
         this.rebuildGraph();
+        this.saveState('component_moved');
       } else {
         // postavi se nazaj na originalno mesto
         component.x = component.getData("originalX");
@@ -1245,6 +1402,7 @@ export default class WorkspaceScene extends Phaser.Scene {
               // Update node positions after rotation and check circuit state
               this.updateLogicNodePositions(component);
               this.rebuildGraph();
+              this.saveState('component_rotated');
             },
           });
 
@@ -1631,8 +1789,17 @@ export default class WorkspaceScene extends Phaser.Scene {
       }
 
       component.setData("isInPanel", false);
+      
+      // Dodaj komponento v workspaceLayer da sledi zoomu
+      if (this.workspaceLayer) {
+        this.workspaceLayer.add(component);
+      }
+      
       this.placedComponents.push(component);
     });
+    
+    // Rebuild graph in check circuit state after loading
+    this.rebuildGraph();
   }
 }
 

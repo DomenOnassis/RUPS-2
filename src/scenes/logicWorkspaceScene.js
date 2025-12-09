@@ -815,6 +815,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         );
 
         this.placedComponents.push(component);
+        this.saveState('component_placed');
 
         // Add component to workspace layer
         if (this.workspaceLayer && !component.getData("isInPanel")) {
