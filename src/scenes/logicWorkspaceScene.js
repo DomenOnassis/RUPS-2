@@ -33,29 +33,23 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   create() {
     const { width, height } = this.cameras.main;
 
-    // Set up camera controls
     this.setupCameraControls();
 
-    // Create workspace layer (will be affected by camera zoom/pan)
     this.workspaceLayer = this.add.container(0, 0);
     this.workspaceLayer.setDepth(0);
 
-    // Add left panel (not affected by zoom)
     this.add.rectangle(0, 0, 200, height, 0x2a2a2a).setOrigin(0);
 
-    // Add workspace background to workspace layer
     const workspaceBackground = this.add
       .rectangle(200, 0, width * 3, height * 3, 0xf5f5f5)
       .setOrigin(0);
     this.workspaceLayer.add(workspaceBackground);
 
-    // Store grid graphics reference for dynamic updates
     this.gridGraphics = this.add.graphics();
     this.gridGraphics.setDepth(1);
     this.workspaceLayer.add(this.gridGraphics);
     this.updateGrid();
 
-    // Store workspace offset for panning
     this.workspaceOffsetX = 0;
     this.workspaceOffsetY = 0;
 
@@ -85,7 +79,6 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       this.createComponent(100, comp.y, comp.type);
     });
 
-    // Zoom buttons
     const makeButton = (x, y, label, onClick) => {
       const buttonWidth = 180;
       const buttonHeight = 40;
@@ -136,8 +129,6 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     };
 
     if (this.mode === "challenge") {
-      // Buttons below the challenge goal panel (which is created in setupChallenge methods at y=140, height ~180)
-      // Challenge panel spans roughly y=50 to y=230, so buttons start at y=310
       makeButton(width - 100, 320, "Test Circuit", () =>
         this.testCircuit()
       );
@@ -193,14 +184,12 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         }
       });
 
-    // Debug mode
     this.debugPortsVisible = false;
     this.debugGraphics = null;
 
     this.input.keyboard.on("keydown-DELETE", () => {
       if (this._hoveredComponent) {
         const comp = this._hoveredComponent;
-        // Prevent deletion of predefined challenge components
         if (comp.getData("isPredefined")) {
           return;
         }
@@ -233,23 +222,19 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     const zoom = this.currentZoom || 1.0;
 
-    // Calculate visible area in workspace coordinates
     const visibleLeft = -this.workspaceOffsetX / zoom;
     const visibleTop = -this.workspaceOffsetY / zoom;
     const visibleRight = visibleLeft + width / zoom;
     const visibleBottom = visibleTop + height / zoom;
 
-    // Clear previous grid
     this.gridGraphics.clear();
 
-    // Adjust grid line width based on zoom
     const lineWidth = Math.max(0.5, 1 / zoom);
     this.gridGraphics.lineStyle(lineWidth, 0xcccccc, 0.3);
 
     const gridSize = this.gridSize;
     const startX = 200;
 
-    // Calculate grid bounds
     const gridStartX = Math.max(
       startX,
       Math.floor(visibleLeft / gridSize) * gridSize
@@ -258,7 +243,6 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     const gridEndX = Math.ceil(visibleRight / gridSize) * gridSize;
     const gridEndY = Math.ceil(visibleBottom / gridSize) * gridSize;
 
-    // Draw vertical lines
     for (let x = gridStartX; x <= gridEndX; x += gridSize) {
       if (x < startX) continue;
       this.gridGraphics.beginPath();
@@ -267,7 +251,6 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       this.gridGraphics.strokePath();
     }
 
-    // Draw horizontal lines
     for (let y = gridStartY; y <= gridEndY; y += gridSize) {
       this.gridGraphics.beginPath();
       this.gridGraphics.moveTo(Math.max(startX, gridStartX), y);
@@ -308,15 +291,12 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   setZoom(newZoom, screenX, screenY) {
     if (!this.workspaceLayer) return;
 
-    // Calculate zoom point in workspace coordinates
     const zoomPointX = (screenX - this.workspaceOffsetX) / this.currentZoom;
     const zoomPointY = (screenY - this.workspaceOffsetY) / this.currentZoom;
 
-    // Update zoom
     this.currentZoom = newZoom;
     this.workspaceLayer.setScale(this.currentZoom);
 
-    // Adjust offset to zoom towards point
     this.workspaceOffsetX = screenX - zoomPointX * this.currentZoom;
     this.workspaceOffsetY = screenY - zoomPointY * this.currentZoom;
     this.workspaceLayer.setPosition(
@@ -328,27 +308,22 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   setupCameraControls() {
-    // Set initial zoom and limits
     this.minZoom = 0.5;
     this.maxZoom = 2.0;
     this.currentZoom = 1.0;
 
-    // Pan state
     this.isPanning = false;
     this.panStartX = 0;
     this.panStartY = 0;
     this.workspaceStartX = 0;
     this.workspaceStartY = 0;
 
-    // Arrow keys for panning
     this.cursors = this.input.keyboard.createCursorKeys();
     this.panSpeed = 5;
 
-    // Mouse wheel zoom
     this.input.on("wheel", (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
-      // Don't zoom if over UI elements (left panel or buttons)
       if (pointer.x < 200 || pointer.x > this.scale.width - 150) return;
-      if (pointer.isDown) return; // Don't zoom while dragging components
+      if (pointer.isDown) return;
 
       const zoomFactor = 0.1;
       let newZoom = this.currentZoom;
@@ -360,17 +335,14 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       }
 
       if (newZoom !== this.currentZoom) {
-        // Calculate zoom point in world coordinates
         const zoomPointX =
           (pointer.x - this.workspaceOffsetX) / this.currentZoom;
         const zoomPointY =
           (pointer.y - this.workspaceOffsetY) / this.currentZoom;
 
-        // Update zoom
         this.currentZoom = newZoom;
         this.workspaceLayer.setScale(this.currentZoom);
 
-        // Adjust offset to zoom towards mouse
         this.workspaceOffsetX = pointer.x - zoomPointX * this.currentZoom;
         this.workspaceOffsetY = pointer.y - zoomPointY * this.currentZoom;
         this.workspaceLayer.setPosition(
@@ -382,11 +354,8 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       }
     });
 
-    // Middle mouse button drag for panning
     this.input.on("pointerdown", (pointer) => {
       if (pointer.button === 1) {
-        // Middle mouse button
-        // Don't pan if over UI elements
         if (pointer.x < 200 || pointer.x > this.scale.width - 150) return;
         this.isPanning = true;
         this.panStartX = pointer.x;
@@ -418,7 +387,6 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   update() {
-    // Arrow key panning
     if (this.cursors && this.workspaceLayer) {
       let moved = false;
 
@@ -459,31 +427,39 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   getAllPortPositions(excludeComponent = null) {
-    // Get all input and output port positions from placed components
     const ports = [];
     this.placedComponents.forEach((comp) => {
       if (comp === excludeComponent || comp.getData("isInPanel")) return;
 
       const type = comp.getData("type");
       const rotation = comp.getData("rotation") || 0;
+      const isWire = type === "wire";
+      const isInputComponent = type === "input-0" || type === "input-1";
+      const isOutputComponent = type === "output";
 
-      // Add output port
-      const outputOffset = this.getOutputOffset(rotation);
-      const outputPort = {
-        x: comp.x + outputOffset.x,
-        y: comp.y + outputOffset.y,
-      };
-      ports.push(outputPort);
-
-      // Add input ports
-      const inputOffsets = this.getInputOffsets(type, rotation);
-      inputOffsets.forEach((inputOffset, idx) => {
-        const inputPort = {
-          x: comp.x + inputOffset.x,
-          y: comp.y + inputOffset.y,
+      if (!isOutputComponent) {
+        const outputOffset = this.getOutputOffset(rotation);
+        const outputPort = {
+          x: comp.x + outputOffset.x,
+          y: comp.y + outputOffset.y,
+          portType: "output",
+          isWire: isWire,
         };
-        ports.push(inputPort);
-      });
+        ports.push(outputPort);
+      }
+
+      if (!isInputComponent) {
+        const inputOffsets = this.getInputOffsets(type, rotation);
+        inputOffsets.forEach((inputOffset, idx) => {
+          const inputPort = {
+            x: comp.x + inputOffset.x,
+            y: comp.y + inputOffset.y,
+            portType: "input",
+            isWire: isWire,
+          };
+          ports.push(inputPort);
+        });
+      }
     });
 
     if (ports.length > 0) {
@@ -491,7 +467,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         `  Found ${ports.length} nearby ports:`,
         ports
           .slice(0, 5)
-          .map((p) => `(${p.x},${p.y})`)
+          .map((p) => `(${p.x},${p.y})[${p.portType}${p.isWire ? '/wire' : ''}]`)
           .join(", ") + (ports.length > 5 ? "..." : "")
       );
     }
@@ -502,33 +478,53 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     const type = component.getData("type");
     const rotation = component.getData("rotation") || 0;
 
-    // Get this component's port offsets
     const offsets = [];
 
-    // Add output port
     offsets.push({
       key: "output",
       offset: this.getOutputOffset(rotation),
+      portType: "output",
     });
 
-    // Add input ports
     const inputOffsets = this.getInputOffsets(type, rotation);
     inputOffsets.forEach((inputOffset, idx) => {
       offsets.push({
         key: `input${idx}`,
         offset: inputOffset,
+        portType: "input",
       });
     });
 
-    // Get all nearby port positions
     const nearbyPorts = this.getAllPortPositions(component);
     let best = { dist: Number.POSITIVE_INFINITY, pos: basePos };
-    const snapRadius = 25; // Slightly larger than gridSize/2 for easier snapping
+    const snapRadius = this.gridSize / 2;
 
-    // Try to align any of our ports to any nearby port
-    offsets.forEach(({ key, offset }) => {
+    
+    
+    
+    
+    
+    const isWire = type === "wire";
+    const isInputComponent = type === "input-0" || type === "input-1";
+    const isOutputComponent = type === "output";
+    
+    offsets.forEach(({ key, offset, portType }) => {
+      if (isInputComponent && portType === "input") return;
+      if (isOutputComponent && portType === "output") return;
+      
       const worldPos = { x: basePos.x + offset.x, y: basePos.y + offset.y };
       nearbyPorts.forEach((port) => {
+        let isCompatible;
+        if (isWire || port.isWire) {
+          isCompatible = true;
+        } else {
+          isCompatible = 
+            (portType === "output" && port.portType === "input") ||
+            (portType === "input" && port.portType === "output");
+        }
+        
+        if (!isCompatible) return;
+
         const dx = port.x - worldPos.x;
         const dy = port.y - worldPos.y;
         const dist = Math.hypot(dx, dy);
@@ -537,7 +533,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
           console.log(
             `  SNAP: ${type} rot:${rotation}° ${key}(${offset.x},${
               offset.y
-            }) → port(${port.x},${port.y}) dist:${dist.toFixed(
+            }) → ${port.portType}(${port.x},${port.y}) dist:${dist.toFixed(
               1
             )}px → move to (${newPos.x},${newPos.y})`
           );
@@ -673,7 +669,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
     let componentImage = null;
 
-    // Handle input types with special visuals (smaller)
+    
     if (s.type === "input-1" || s.type === "input-0") {
       const circleColor = s.type === "input-1" ? 0x00ff00 : 0xff0000;
       const circle = this.add.circle(0, 0, 25, circleColor, 1);
@@ -733,7 +729,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     component.setInteractive({ draggable: true, useHandCursor: true });
     this.input.setDraggable(component);
 
-    // For special types, there's no componentImage
+    
     const imageRef =
       s.type === "input-1" || s.type === "input-0" || s.type === "output"
         ? null
@@ -742,7 +738,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
     this.placedComponents.push(component);
 
-    // Add component to workspace layer
+    
     if (this.workspaceLayer) {
       this.workspaceLayer.add(component);
     }
@@ -763,7 +759,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
     component.on("drag", (pointer, dragX, dragY) => {
       component.setData("dragMoved", true);
-      // If component is in workspace layer, convert screen to workspace coordinates
+      
       if (
         this.workspaceLayer &&
         !component.getData("isInPanel") &&
@@ -782,17 +778,33 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     });
 
     component.on("dragend", () => {
-      const isInPanel = component.x < 200;
+      
+      
+      let screenX = component.x;
+      if (!component.getData("isInPanel") && component.parentContainer === this.workspaceLayer) {
+        screenX = component.x * this.currentZoom + this.workspaceOffsetX;
+      }
+      const isInPanel = screenX < 200;
 
       if (isInPanel && !component.getData("isInPanel")) {
-        // Component dragged back to panel - destroy it
+        
+        
+        if (component.getData("isPredefined")) {
+          
+          const previousX = component.getData("previousX") || component.getData("originalX");
+          const previousY = component.getData("previousY") || component.getData("originalY");
+          component.x = previousX;
+          component.y = previousY;
+          component.setData("isDragging", false);
+          return;
+        }
         this.placedComponents = this.placedComponents.filter(
           (c) => c !== component
         );
         component.destroy();
       } else if (!isInPanel && component.getData("isInPanel")) {
-        // Component dragged from panel to workspace
-        // Convert screen coordinates to workspace coordinates
+        
+        
         const screenX = component.x;
         const screenY = component.y;
         const workspaceX = (screenX - this.workspaceOffsetX) / this.currentZoom;
@@ -819,7 +831,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         );
 
         if (isOccupied) {
-          // Position occupied - return to panel
+          
           console.log(`  ✗ Position occupied, returning to panel`);
           component.x = component.getData("originalX");
           component.y = component.getData("originalY");
@@ -833,31 +845,31 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         component.setData("previousX", portSnapped.x);
         component.setData("previousY", portSnapped.y);
 
-        // Resize for regular components (not special types)
+        
         if (componentImage) {
           const newDisplaySize = type === "wire" ? 80 : 160;
           componentImage.setDisplaySize(newDisplaySize, newDisplaySize);
         } else if (type === "input-1" || type === "input-0") {
-          // Resize input type elements
+          
           const circle = component.getData("circleGraphic");
           const valueText = component.getData("valueText");
           if (circle) circle.setRadius(25);
           if (valueText) valueText.setFontSize("28px");
         } else if (type === "output") {
-          // Resize output elements
+          
           const circle = component.getData("circleGraphic");
           const valueText = component.getData("valueText");
           if (circle) circle.setRadius(30);
           if (valueText) valueText.setFontSize("16px");
         }
 
-        // Add component to workspace layer BEFORE creating replacement
-        // This ensures the component is properly reparented with correct coordinates
+        
+        
         if (this.workspaceLayer && !component.getData("isInPanel")) {
           this.workspaceLayer.add(component);
         }
 
-        // Create new component in panel to replace the one being placed
+        
         this.createComponent(
           component.getData("originalX"),
           component.getData("originalY"),
@@ -878,7 +890,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
           },
         });
       } else if (!component.getData("isInPanel")) {
-        // Component already on workspace - snap to grid and nearby ports
+        
         const start = component.getData("startPos");
         const snapped = this.snapToGrid(component.x, component.y);
         console.log(
@@ -901,13 +913,13 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         );
 
         if (!isOccupied) {
-          // Position is free - move to snapped position
+          
           component.x = portSnapped.x;
           component.y = portSnapped.y;
           component.setData("previousX", portSnapped.x);
           component.setData("previousY", portSnapped.y);
 
-          // Only add to undo stack if actually moved
+          
           if (start && (start.x !== component.x || start.y !== component.y)) {
             this.pushAction({
               type: "move",
@@ -918,7 +930,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
             });
           }
         } else {
-          // Position occupied - revert to previous position
+          
           if (start) {
             component.x = start.x;
             component.y = start.y;
@@ -932,7 +944,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     });
 
     component.on("pointerdown", (pointer) => {
-      // Right-click delete
+      
       if (pointer?.rightButtonDown()) {
         pointer.event?.preventDefault?.();
         if (!component.getData("isInPanel")) {
@@ -1021,7 +1033,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       ? 80
       : 160;
 
-    // Interactive size: consistent 70x70 in panel (like workspaceScene)
+    
     const interactiveSize = isInPanel ? 70 : isSmallType ? 80 : 160;
 
     const uid = forceUid ?? type + "_" + Math.floor(Math.random() * 999999);
@@ -1029,15 +1041,15 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
     let componentImage;
 
-    // Handle input types with special visuals (smaller size)
+    
     if (type === "input-1" || type === "input-0") {
-      // Create a colored circle background (smaller)
+      
       const circleColor = type === "input-1" ? 0x00ff00 : 0xff0000;
       const circleRadius = isInPanel ? 15 : 25;
       const circle = this.add.circle(0, 0, circleRadius, circleColor, 1);
       component.add(circle);
 
-      // Add the input value text
+      
       const inputValue = type === "input-1" ? "1" : "0";
       const valueText = this.add
         .text(0, 0, inputValue, {
@@ -1048,17 +1060,17 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         .setOrigin(0.5);
       component.add(valueText);
 
-      // Store the text for potential updates
+      
       component.setData("valueText", valueText);
       component.setData("circleGraphic", circle);
     } else if (type === "output") {
-      // Create output indicator (gray circle initially)
+      
       const circleRadius = isInPanel ? 20 : 30;
       const circle = this.add.circle(0, 0, circleRadius, 0x808080, 1);
       circle.setStrokeStyle(3, 0x333333);
       component.add(circle);
 
-      // Add "OUT" text
+      
       const valueText = this.add
         .text(0, 0, "OUT", {
           fontSize: isInPanel ? "12px" : "16px",
@@ -1068,12 +1080,12 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         .setOrigin(0.5);
       component.add(valueText);
 
-      // Store for potential updates
+      
       component.setData("valueText", valueText);
       component.setData("circleGraphic", circle);
       component.setData("outputValue", null);
     } else {
-      // Use image for logic gates and wires
+      
       componentImage = this.add
         .image(0, 0, type)
         .setOrigin(0.5)
@@ -1097,7 +1109,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
     this.input.setDraggable(component);
 
-    // For special types, pass null as componentImage since they use different visuals
+    
     const imageRef =
       type === "input-1" || type === "input-0" || type === "output"
         ? null
@@ -1110,14 +1122,14 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   testCircuit() {
     console.log("=== Testing Circuit ===");
 
-    // Get all components on the workspace
+    
     const workspaceComponents = this.placedComponents.filter(
       (c) => !c.getData("isInPanel")
     );
 
     console.log("Workspace components:", workspaceComponents.length);
 
-    // Log all component positions and rotations
+    
     workspaceComponents.forEach((comp) => {
       const type = comp.getData("type");
       const rotation = comp.getData("rotation") || 0;
@@ -1132,12 +1144,12 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       );
     });
 
-    // Reset all component values
+    
     workspaceComponents.forEach((comp) => {
       comp.setData("logicValue", undefined);
     });
 
-    // Set input values
+    
     workspaceComponents.forEach((comp) => {
       const type = comp.getData("type");
       if (type === "input-1") {
@@ -1147,7 +1159,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       }
     });
 
-    // Build connection graph (which components are connected)
+    
     const connections = this.buildConnectionGraph(workspaceComponents);
 
     console.log("Connections built:", connections.size);
@@ -1160,7 +1172,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       }
     });
 
-    // Evaluate circuit (propagate values through gates)
+    
     const maxIterations = 100;
     let changed = true;
     let iterations = 0;
@@ -1173,64 +1185,64 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         const type = comp.getData("type");
         const currentValue = comp.getData("logicValue");
 
-        // Skip if already has value or is input
+        
         if (type === "input-1" || type === "input-0") {
           return;
         }
 
-        // Get inputs to this component
+        
         const inputs = this.getComponentInputs(comp, connections);
 
-        // Skip if no inputs
+        
         if (inputs.length === 0) {
           return;
         }
 
-        // For wires at junctions, accept if ANY input is ready
-        // For gates, require ALL inputs to be ready
+        
+        
         if (type === "wire") {
           if (!inputs.some((v) => v !== undefined)) {
-            return; // All inputs undefined
+            return; 
           }
         } else {
-          // Gates need all inputs ready
+          
           if (inputs.some((v) => v === undefined)) {
             return;
           }
         }
 
-        // Calculate output based on gate type
+        
         let output = undefined;
         switch (type) {
           case "wire":
-            // Wire passes through any defined input (supports junctions with multiple inputs)
+            
             output = inputs.find((v) => v !== undefined);
             break;
           case "not":
             output = inputs[0] !== undefined ? 1 - inputs[0] : undefined;
             break;
           case "and":
-            // AND requires at least 1 input, output 1 only if all are 1
+            
             output = inputs.length > 0 && inputs.every((v) => v === 1) ? 1 : 0;
             break;
           case "or":
-            // OR outputs 1 if any input is 1
+            
             output = inputs.some((v) => v === 1) ? 1 : 0;
             break;
           case "nand":
-            // NAND is opposite of AND
+            
             output = inputs.length > 0 && inputs.every((v) => v === 1) ? 0 : 1;
             break;
           case "nor":
-            // NOR is opposite of OR
+            
             output = inputs.some((v) => v === 1) ? 0 : 1;
             break;
           case "xor":
-            // XOR outputs 1 if odd number of 1s
+            
             output = inputs.reduce((a, b) => a ^ b, 0);
             break;
           case "xnor":
-            // XNOR outputs 1 if even number of 1s
+            
             output = inputs.reduce((a, b) => a ^ b, 0) === 0 ? 1 : 0;
             break;
           case "output":
@@ -1250,23 +1262,26 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
     console.log(`Circuit evaluated in ${iterations} iterations`);
 
-    // Update visual display of outputs
+    
     this.updateOutputDisplay();
   }
 
   buildConnectionGraph(components) {
     const connections = new Map();
-    const connectionTolerance = 45; // Forgiving tolerance for grid-snapped connections
+    const connectionTolerance = 45; 
 
     components.forEach((comp) => {
       connections.set(comp, []);
     });
 
-    // For each component, find what's connected to its output
+    
     components.forEach((comp1) => {
       const type1 = comp1.getData("type");
+      
+      
+      if (type1 === "output") return;
 
-      // Calculate output position
+      
       const rotation1 = comp1.getData("rotation") || 0;
       const outputOffset = this.getOutputOffset(rotation1);
       const output1X = comp1.x + outputOffset.x;
@@ -1277,10 +1292,13 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
         const type2 = comp2.getData("type");
         const rotation2 = comp2.getData("rotation") || 0;
+        
+        
+        if (type2 === "input-0" || type2 === "input-1") return;
 
         let connected = false;
 
-        // 1. Standard output-to-input connection
+        
         const inputOffsets = this.getInputOffsets(type2, rotation2);
         inputOffsets.forEach((inputOffset, idx) => {
           const input2X = comp2.x + inputOffset.x;
@@ -1301,13 +1319,13 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
           }
         });
 
-        // 2. Additional wire-to-wire connections: check ALL port combinations
+        
         if (type1 === "wire" && type2 === "wire" && !connected) {
           const input1Offsets = this.getInputOffsets(type1, rotation1);
           const output2Offset = this.getOutputOffset(rotation2);
           const input2Offsets = this.getInputOffsets(type2, rotation2);
 
-          // Collect all ports for both wires
+          
           const allPorts1 = [
             { x: output1X, y: output1Y, name: "out" },
             ...input1Offsets.map((offset, i) => ({
@@ -1330,7 +1348,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
             })),
           ];
 
-          // Check if ANY other ports align (beyond output-to-input already checked)
+          
           allPorts1.forEach((port1) => {
             allPorts2.forEach((port2) => {
               const dx = Math.abs(port1.x - port2.x);
@@ -1338,7 +1356,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
               const distance = Math.sqrt(dx * dx + dy * dy);
 
               if (distance < connectionTolerance && !connected) {
-                // Wires connected - bidirectional
+                
                 if (!connections.get(comp1).includes(comp2)) {
                   connections.get(comp1).push(comp2);
                 }
@@ -1360,7 +1378,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   getOutputOffset(rotation) {
-    // Output is on the right side (40px offset) adjusted for rotation
+    
     const angle = (rotation * Math.PI) / 180;
     return {
       x: Math.round(40 * Math.cos(angle)),
@@ -1369,7 +1387,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   getInputOffset(rotation) {
-    // Input is on the left side (-40px offset) adjusted for rotation
+    
     const angle = (rotation * Math.PI) / 180;
     return {
       x: Math.round(-40 * Math.cos(angle)),
@@ -1378,11 +1396,11 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   getInputOffsets(componentType, rotation) {
-    // Multi-input gates have two input ports
+    
     const multiInputGates = ["and", "or", "nand", "nor", "xor", "xnor"];
 
     if (multiInputGates.includes(componentType)) {
-      // Two inputs: one at top-left, one at bottom-left
+      
       const angle = (rotation * Math.PI) / 180;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
@@ -1398,7 +1416,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         },
       ];
     } else {
-      // Single input gates (NOT, wire, output)
+      
       return [this.getInputOffset(rotation)];
     }
   }
@@ -1407,7 +1425,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     const inputs = [];
     const componentType = component.getData("type");
 
-    // Find all components that connect to this one
+    
     this.placedComponents.forEach((otherComp) => {
       if (otherComp.getData("isInPanel")) return;
 
@@ -1415,8 +1433,8 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       if (connectedComponents.includes(component)) {
         const value = otherComp.getData("logicValue");
 
-        // For wire-to-wire junctions, only accept defined values
-        // This prevents feedback loops
+        
+        
         if (componentType === "wire" && otherComp.getData("type") === "wire") {
           if (value !== undefined) {
             inputs.push(value);
@@ -1439,21 +1457,21 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
 
         if (circle) {
           if (value === 1) {
-            circle.setFillStyle(0x00ff00, 1); // Green for 1
+            circle.setFillStyle(0x00ff00, 1); 
             circle.setStrokeStyle(3, 0x00cc00);
             if (text) {
               text.setText("1");
               text.setFontSize("24px");
             }
           } else if (value === 0) {
-            circle.setFillStyle(0xff0000, 1); // Red for 0
+            circle.setFillStyle(0xff0000, 1); 
             circle.setStrokeStyle(3, 0xcc0000);
             if (text) {
               text.setText("0");
               text.setFontSize("24px");
             }
           } else {
-            circle.setFillStyle(0x808080, 1); // Gray for undefined
+            circle.setFillStyle(0x808080, 1); 
             circle.setStrokeStyle(3, 0x333333);
             if (text) {
               text.setText("OUT");
@@ -1466,12 +1484,12 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   clearOutput() {
-    // Reset all logic values
+    
     this.placedComponents.forEach((comp) => {
       comp.setData("logicValue", undefined);
     });
 
-    // Update output display to show default state
+    
     this.updateOutputDisplay();
   }
 
@@ -1486,7 +1504,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   showDebugPorts() {
-    // Clear previous debug graphics
+    
     if (this.debugGraphics) {
       this.debugGraphics.destroy();
     }
@@ -1498,7 +1516,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       this.workspaceLayer.add(this.debugGraphics);
     }
 
-    // Draw connection points for all workspace components
+    
     const workspaceComponents = this.placedComponents.filter(
       (c) => !c.getData("isInPanel")
     );
@@ -1507,14 +1525,14 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       const type = comp.getData("type");
       const rotation = comp.getData("rotation") || 0;
 
-      // Draw output port (green)
+      
       const outputOffset = this.getOutputOffset(rotation);
       const outputX = comp.x + outputOffset.x;
       const outputY = comp.y + outputOffset.y;
       this.debugGraphics.fillStyle(0x00ff00, 0.8);
       this.debugGraphics.fillCircle(outputX, outputY, 5);
 
-      // Draw input ports (red)
+      
       const inputOffsets = this.getInputOffsets(type, rotation);
       inputOffsets.forEach((inputOffset) => {
         const inputX = comp.x + inputOffset.x;
@@ -1523,7 +1541,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
         this.debugGraphics.fillCircle(inputX, inputY, 5);
       });
 
-      // Draw component center (blue)
+      
       this.debugGraphics.fillStyle(0x0000ff, 0.5);
       this.debugGraphics.fillCircle(comp.x, comp.y, 3);
     });
@@ -1542,23 +1560,23 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   resetChallenge() {
-    // Remove all user-added components (not predefined)
+    
     const componentsToRemove = this.placedComponents.filter(
       comp => !this.predefinedComponents.includes(comp)
     );
     
     componentsToRemove.forEach(component => {
-      // Remove from arrays
+      
       const placedIndex = this.placedComponents.indexOf(component);
       if (placedIndex > -1) {
         this.placedComponents.splice(placedIndex, 1);
       }
       
-      // Destroy the visual
+      
       component.destroy();
     });
     
-    // Reset predefined components to their original positions
+    
     this.predefinedComponents.forEach(component => {
       const originalX = component.getData("predefinedX");
       const originalY = component.getData("predefinedY");
@@ -1574,10 +1592,10 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       }
     });
     
-    // Clear output displays on all output components
+    
     this.clearOutput();
     
-    // Clear undo/redo stacks
+    
     this.undoStack = [];
     this.redoStack = [];
   }
@@ -1635,7 +1653,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     component.setData("previousY", worldY);
     
     if (isPredefined) {
-      // Store original positions for reset
+      
       component.setData("predefinedX", worldX);
       component.setData("predefinedY", worldY);
       component.setData("predefinedRotation", 0);
@@ -1755,7 +1773,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   setupChallenge21() {
     const { width, height } = this.cameras.main;
     
-    // Half adder: XOR for sum, AND for carry
+    
     this.placeLogicComponent("xor", 15, 8);
     this.placeLogicComponent("and", 15, 10);
     this.placeLogicComponent("output", 23, 8);
@@ -1767,7 +1785,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   setupChallenge22() {
     const { width, height } = this.cameras.main;
     
-    // Full adder: XOR gates for sum, AND/OR for carry
+    
     this.placeLogicComponent("xor", 13, 7);
     this.placeLogicComponent("xor", 13, 11);
     this.placeLogicComponent("and", 18, 6);
@@ -1782,7 +1800,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   setupChallenge23() {
     const { width, height } = this.cameras.main;
     
-    // 2-to-1 Multiplexer
+    
     this.placeLogicComponent("and", 15, 7);
     this.placeLogicComponent("and", 15, 11);
     this.placeLogicComponent("not", 18, 9);
@@ -1795,7 +1813,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   setupChallenge24() {
     const { width, height } = this.cameras.main;
     
-    // 4-to-2 Priority encoder
+    
     this.placeLogicComponent("or", 13, 6);
     this.placeLogicComponent("or", 13, 9);
     this.placeLogicComponent("and", 18, 7);
@@ -1810,7 +1828,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   setupChallenge25() {
     const { width, height } = this.cameras.main;
     
-    // Master logic circuit: complex combination
+    
     this.placeLogicComponent("and", 12, 6);
     this.placeLogicComponent("or", 12, 9);
     this.placeLogicComponent("xor", 12, 12);
@@ -1824,7 +1842,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   createLogicChallengePanel(width, goalText) {
-    // Position at the top right, above all buttons, offset left to avoid edge and back button
+    
     const challengePanel = this.add.container(width - 150, 140);
     challengePanel.setDepth(1001);
 
@@ -2135,7 +2153,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   completeLogicChallengeSuccess() {
-    // Mark challenge as complete on server
+    
     const token = localStorage.getItem('token');
     const challengeId = parseInt(this.selectedChallengeId);
     
@@ -2169,7 +2187,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       return;
     }
 
-    // For AND gate challenge, check that there are at least 2 input components
+    
     const inputComponents = this.placedComponents.filter(comp => 
       comp.getData("type") === "input-1" || comp.getData("type") === "input-0"
     );
@@ -2179,7 +2197,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       return;
     }
 
-    // Check if there's an output component
+    
     const outputComponents = this.placedComponents.filter(comp => comp.getData("type") === "output");
     if (outputComponents.length === 0) {
       this.showChallengeMessage("Add an output component to show the result", 0xffa500);
@@ -2223,7 +2241,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       duration: 300
     });
 
-    // Auto-hide message after 3 seconds
+    
     this.time.delayedCall(3000, () => {
       if (this.challengeMessage) {
         this.tweens.add({
@@ -2254,7 +2272,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(1004);
 
-    // HTML INPUT FIELD
+    
     const input = document.createElement("input");
     input.type = "text";
     input.placeholder = "Enter circuit name";
@@ -2344,7 +2362,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     this.loadCircuitTexts = [];
 
-    // background
+    
     this.loadBg = this.add
       .rectangle(width / 2, height / 2, 500, 350, 0x000000, 0.85)
       .setOrigin(0.5)
@@ -2425,7 +2443,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
   }
 
   loadCircuit(components) {
-    // Clear existing placed components (not panel components)
+    
     this.placedComponents
       .filter((c) => !c.getData("isInPanel"))
       .forEach((c) => c.destroy());
@@ -2433,7 +2451,7 @@ export default class LogicWorkspaceScene extends Phaser.Scene {
       c.getData("isInPanel")
     );
 
-    // Create components from loaded data
+    
     components.forEach((comp) => {
       const newComp = this.createPlacedFromSnapshot({
         uid: comp.type + "_" + Math.floor(Math.random() * 999999),

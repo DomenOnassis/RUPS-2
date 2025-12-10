@@ -23,14 +23,12 @@ export default class MenuScene extends Phaser.Scene {
     create() {
         const { width, height } = this.scale;
 
-        this.children.removeAll(true); // odstrani vse objekte iz prejsnje scene
+        this.children.removeAll(true);
         this.fixedComponents = [];
         this.isSwitchOn = false;
 
-        // ozdaje
         this.createDeskBackground(width, height);
 
-        // zice 
         this.cameras.main.setBackgroundColor('#ffffff');
         const wireThickness = 9.5;
         const wireColor = 0x1a1a1a;
@@ -48,13 +46,12 @@ export default class MenuScene extends Phaser.Scene {
         this.add.rectangle(leftWireX - wireThickness / 2, rectY, wireThickness, rectHeight + wireThickness, wireColor);
         this.add.rectangle(rightWireX + wireThickness / 2, rectY, wireThickness, rectHeight + wireThickness, wireColor);
 
-        // spodanji zici
         const gapWidth = 250;
         const halfBottomWidth = (rectWidth - gapWidth) / 2;
         this.add.rectangle(rectX - gapWidth / 2 - halfBottomWidth / 2, bottomWireY, halfBottomWidth, wireThickness, wireColor);
         this.add.rectangle(rectX + gapWidth / 2 + halfBottomWidth / 2, bottomWireY, halfBottomWidth, wireThickness, wireColor);
 
-        // switch
+        
         const switchOffsetY = -18.5;
         this.switchButton = this.add.image(rectX, bottomWireY + switchOffsetY, 'switch-off')
             .setScale(0.7)
@@ -62,7 +59,7 @@ export default class MenuScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true })
             .on('pointerdown', () => this.toggleSwitch());
 
-        // ui elem
+        
         this.createUI();
 
         const token = localStorage.getItem('token');
@@ -71,19 +68,19 @@ export default class MenuScene extends Phaser.Scene {
             return;
         } 
 
-        // komponente
+        
         this.createComponents(width, height, rectX, rectY);
         this.hideComponents();
     }
 
     createDeskBackground(width, height) {
-        // svetla lesena povrsina
+        
         this.desk = this.add.rectangle(0, 0, width, height, 0xe0c9a6)
             .setOrigin(0)
             .setAlpha(0)
             .setDepth(-2);
 
-        // mreza
+        
         this.gridGraphics = this.add.graphics({ alpha: 0 });
         this.gridGraphics.setDepth(-1);
         this.gridGraphics.lineStyle(1, 0x8b7355, 0.35);
@@ -154,15 +151,15 @@ export default class MenuScene extends Phaser.Scene {
 
         if (this.isSwitchOn) {
             this.switchButton.setTexture('switch-on');
-            // Don't adjust position - both images should have same origin
+            
 
-            // bel napis
+            
             this.title.setStyle({
                 color: '#ffffff',
                 shadow: {
                     offsetX: 0,
                     offsetY: 0,
-                    color: '#ffdd55', // toplo rumen sij
+                    color: '#ffdd55', 
                     blur: 40,
                     fill: true
                 }
@@ -174,7 +171,7 @@ export default class MenuScene extends Phaser.Scene {
 
         } else {
             this.switchButton.setTexture('switch-off');
-            // Don't adjust position - both images should have same origin
+            
             this.title.setStyle({
                 color: '#222222',
                 shadow: { offsetX: 0, offsetY: 0, color: '#00000000', blur: 0, fill: false }
@@ -190,24 +187,24 @@ export default class MenuScene extends Phaser.Scene {
        const rectX = this.scale.width / 2;
         const rectY = this.scale.height / 2 - 50;
         
-        // vogali gumba
+        
         const cornerRadius = 15; 
         const buttonWidth = 250; 
         const buttonHeight = 60;
         
-        // ozadje gumba
+        
         this.startButtonBackground = this.add.graphics();
-        this.startButtonBackground.fillStyle(0xdddddd, 1); // siva
+        this.startButtonBackground.fillStyle(0xdddddd, 1); 
         this.startButtonBackground.fillRoundedRect(
-            rectX - buttonWidth / 2, // X zacetek
-            (rectY + 100) - buttonHeight / 2, // Y zacetek
+            rectX - buttonWidth / 2, 
+            (rectY + 100) - buttonHeight / 2, 
             buttonWidth, 
             buttonHeight, 
-            cornerRadius // Polmer!
+            cornerRadius 
         );
         this.startButtonBackground.setDepth(-1); 
 
-        // naslov
+        
         this.title = this.add.text(rectX, rectY, 'MASTER-CIRCUIT', { 
             fontFamily: 'Arial', 
             fontSize: '72px', 
@@ -215,7 +212,7 @@ export default class MenuScene extends Phaser.Scene {
             color: '#222222' 
         }).setOrigin(0.5);
 
-        // gumb
+        
         this.loginButton = this.add.text(rectX, rectY + 100, '▶ Start', {
             fontFamily: 'Arial',
             fontSize: '32px',
@@ -224,7 +221,7 @@ export default class MenuScene extends Phaser.Scene {
             .setOrigin(0.5)
             .setInteractive({ useHandCursor: true })
             
-            // hower
+            
             .on('pointerover', () => {
                 if (this.isSwitchOn)
                     this.startButtonBackground.fillStyle(0x0f5cadff, 1).fillRoundedRect(rectX - buttonWidth / 2, (rectY + 100) - buttonHeight / 2, buttonWidth, buttonHeight, cornerRadius);
@@ -250,7 +247,7 @@ export default class MenuScene extends Phaser.Scene {
     }
 
 enableStartButton(isActive) {
-        // zaobljen gumb
+        
         const cornerRadius = 15;
         const buttonWidth = 250;
         const buttonHeight = 60;
@@ -259,17 +256,17 @@ enableStartButton(isActive) {
 
         if (isActive) {
             this.loginButton.setStyle({
-                color: '#ffffff', // spremeni samo barvo besedila
+                color: '#ffffff', 
             });
-            // novo ozadje
+            
             this.startButtonBackground.clear();
             this.startButtonBackground.fillStyle(0x3399ff, 1); 
             this.startButtonBackground.fillRoundedRect(rectX - buttonWidth / 2, (rectY + 100) - buttonHeight / 2, buttonWidth, buttonHeight, cornerRadius);
         } else {
             this.loginButton.setStyle({
-                color: '#aaaaaa', // spremeni samo barvo besedila
+                color: '#aaaaaa', 
             });
-            // novo ozadje
+            
             this.startButtonBackground.clear();
             this.startButtonBackground.fillStyle(0xdddddd, 1);
             this.startButtonBackground.fillRoundedRect(rectX - buttonWidth / 2, (rectY + 100) - buttonHeight / 2, buttonWidth, buttonHeight, cornerRadius);

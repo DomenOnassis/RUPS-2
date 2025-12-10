@@ -228,8 +228,6 @@ export default class WorkspaceScene extends Phaser.Scene {
     };
 
     if (this.mode === "challenge") {
-      // Buttons below the challenge goal panel (which is created in setupChallenge methods at y=200, height ~150)
-      // Challenge panel spans roughly y=125 to y=275, so buttons start at y=300
       makeButton(width - 140, 310, "Simulate", () =>
         this.runSimulationAndCheck()
       );
@@ -299,11 +297,15 @@ export default class WorkspaceScene extends Phaser.Scene {
         });
       });
 
-    // Initialize arrays before challenge setup
+    
     this.placedComponents = [];
     this.predefinedComponents = [];
     this.gridSize = 40;
     this.selectedComponent = null;
+    
+    
+    this.connected = 0;
+    this.sim = false;
     
     this.undoStack = [];
     this.redoStack = [];
@@ -366,15 +368,13 @@ export default class WorkspaceScene extends Phaser.Scene {
   setZoom(newZoom, screenX, screenY) {
     if (!this.workspaceLayer) return;
 
-    // Calculate zoom point in workspace coordinates
+    
     const zoomPointX = (screenX - this.workspaceOffsetX) / this.currentZoom;
     const zoomPointY = (screenY - this.workspaceOffsetY) / this.currentZoom;
 
-    // Update zoom
     this.currentZoom = newZoom;
     this.workspaceLayer.setScale(this.currentZoom);
 
-    // Adjust offset to zoom towards point
     this.workspaceOffsetX = screenX - zoomPointX * this.currentZoom;
     this.workspaceOffsetY = screenY - zoomPointY * this.currentZoom;
     this.workspaceLayer.setPosition(
@@ -388,23 +388,21 @@ export default class WorkspaceScene extends Phaser.Scene {
   setupCameraControls() {
     const camera = this.cameras.main;
 
-    // Set initial zoom and limits
+    
     this.minZoom = 0.5;
     this.maxZoom = 2.0;
     this.currentZoom = 1.0;
 
-    // Pan state
     this.isPanning = false;
     this.panStartX = 0;
     this.panStartY = 0;
     this.workspaceStartX = 0;
     this.workspaceStartY = 0;
 
-    // Arrow keys for panning
     this.cursors = this.input.keyboard.createCursorKeys();
     this.panSpeed = 5;
 
-    // Delete key for component deletion
+    
     this.input.keyboard.on('keydown-DELETE', () => {
       if (this.selectedComponent && !this.selectedComponent.getData('isInPanel')) {
         this.deleteComponent(this.selectedComponent);
@@ -412,7 +410,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       }
     });
 
-    // Undo/Redo keyboard shortcuts
+    
     this.input.keyboard.on('keydown-Z', (event) => {
       if (event.ctrlKey) {
         event.preventDefault();
@@ -427,11 +425,10 @@ export default class WorkspaceScene extends Phaser.Scene {
       }
     });
 
-    // Mouse wheel zoom
     this.input.on("wheel", (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
-      // Don't zoom if over UI elements (left panel or buttons)
+      
       if (pointer.x < 200 || pointer.x > this.scale.width - 200) return;
-      if (pointer.isDown) return; // Don't zoom while dragging components
+      if (pointer.isDown) return;
 
       const zoomFactor = 0.1;
       let newZoom = this.currentZoom;
@@ -443,17 +440,14 @@ export default class WorkspaceScene extends Phaser.Scene {
       }
 
       if (newZoom !== this.currentZoom) {
-        // Calculate zoom point in world coordinates
         const zoomPointX =
           (pointer.x - this.workspaceOffsetX) / this.currentZoom;
         const zoomPointY =
           (pointer.y - this.workspaceOffsetY) / this.currentZoom;
 
-        // Update zoom
         this.currentZoom = newZoom;
         this.workspaceLayer.setScale(this.currentZoom);
 
-        // Adjust offset to zoom towards mouse
         this.workspaceOffsetX = pointer.x - zoomPointX * this.currentZoom;
         this.workspaceOffsetY = pointer.y - zoomPointY * this.currentZoom;
         this.workspaceLayer.setPosition(
@@ -465,11 +459,10 @@ export default class WorkspaceScene extends Phaser.Scene {
       }
     });
 
-    // Middle mouse button drag for panning
     this.input.on("pointerdown", (pointer) => {
       if (pointer.button === 1) {
-        // Middle mouse button
-        // Don't pan if over UI elements
+        
+        
         if (pointer.x < 200 || pointer.x > this.scale.width - 200) return;
         this.isPanning = true;
         this.panStartX = pointer.x;
@@ -501,7 +494,7 @@ export default class WorkspaceScene extends Phaser.Scene {
   }
 
   update() {
-    // Arrow key panning
+    
     if (this.cursors && this.workspaceLayer) {
       let moved = false;
 
@@ -537,26 +530,26 @@ export default class WorkspaceScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     const zoom = this.currentZoom || 1.0;
 
-    // Calculate visible area in workspace coordinates
+    
     const visibleLeft = -this.workspaceOffsetX / zoom;
     const visibleTop = -this.workspaceOffsetY / zoom;
     const visibleRight = visibleLeft + width / zoom;
     const visibleBottom = visibleTop + height / zoom;
 
-    // Clear previous grid
+    
     this.gridGraphics.clear();
 
-    // Adjust grid line width based on zoom
+    
     const lineWidth = Math.max(0.5, 1 / zoom);
     this.gridGraphics.lineStyle(lineWidth, 0x8b7355, 0.35);
 
-    // Calculate grid bounds
+    
     const startX = Math.floor(visibleLeft / this.gridSize) * this.gridSize;
     const startY = Math.floor(visibleTop / this.gridSize) * this.gridSize;
     const endX = Math.ceil(visibleRight / this.gridSize) * this.gridSize;
     const endY = Math.ceil(visibleBottom / this.gridSize) * this.gridSize;
 
-    // Draw vertical lines
+    
     for (let x = startX; x <= endX; x += this.gridSize) {
       this.gridGraphics.beginPath();
       this.gridGraphics.moveTo(x, startY);
@@ -564,7 +557,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       this.gridGraphics.strokePath();
     }
 
-    // Draw horizontal lines
+    
     for (let y = startY; y <= endY; y += this.gridSize) {
       this.gridGraphics.beginPath();
       this.gridGraphics.moveTo(startX, y);
@@ -573,12 +566,12 @@ export default class WorkspaceScene extends Phaser.Scene {
     }
   }
 
-  // Undo/Redo history management
+  
   saveState(action) {
-    // Clear redo stack when new action is performed
+    
     this.redoStack = [];
     
-    // Save current state
+    
     const state = {
       action: action,
       components: this.placedComponents.map(c => ({
@@ -592,7 +585,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     
     this.undoStack.push(state);
     
-    // Maintain max history size
+    
     if (this.undoStack.length > this.maxHistorySize) {
       this.undoStack.shift();
     }
@@ -601,7 +594,7 @@ export default class WorkspaceScene extends Phaser.Scene {
   undo() {
     if (this.undoStack.length === 0) return;
     
-    // Save current state to redo stack
+    
     const currentState = {
       action: 'state',
       components: this.placedComponents.map(c => ({
@@ -614,7 +607,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     };
     this.redoStack.push(currentState);
     
-    // Restore previous state
+    
     const previousState = this.undoStack.pop();
     this.restoreState(previousState);
   }
@@ -622,7 +615,7 @@ export default class WorkspaceScene extends Phaser.Scene {
   redo() {
     if (this.redoStack.length === 0) return;
     
-    // Save current state to undo stack
+    
     const currentState = {
       action: 'state',
       components: this.placedComponents.map(c => ({
@@ -635,13 +628,13 @@ export default class WorkspaceScene extends Phaser.Scene {
     };
     this.undoStack.push(currentState);
     
-    // Restore next state
+    
     const nextState = this.redoStack.pop();
     this.restoreState(nextState);
   }
 
   restoreState(state) {
-    // Destroy all current components
+    
     this.placedComponents.forEach(c => {
       if (this.workspaceLayer) {
         this.workspaceLayer.remove(c);
@@ -651,7 +644,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     this.placedComponents = [];
     this.selectedComponent = null;
 
-    // Recreate components from state
+    
     state.components.forEach((item) => {
       const component = this.createComponent(
         item.x,
@@ -681,7 +674,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       this.placedComponents.push(component);
     });
 
-    // Rebuild graph
+    
     this.rebuildGraph();
   }
 
@@ -707,7 +700,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     const gridSize = 40;
     const startX = 200;
 
-    // vertikalne črte
+    
     for (let x = startX; x < width; x += gridSize) {
       gridGraphics.beginPath();
       gridGraphics.moveTo(x, 0);
@@ -715,7 +708,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       gridGraphics.strokePath();
     }
 
-    // horizontalne črte
+    
     for (let y = 0; y < height; y += gridSize) {
       gridGraphics.beginPath();
       gridGraphics.moveTo(startX, y);
@@ -728,7 +721,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     const gridSize = this.gridSize;
     const startX = 200;
 
-    // komponeta se postavi na presečišče
+    
     const snappedX = Math.round((x - startX) / gridSize) * gridSize + startX;
     const snappedY = Math.round(y / gridSize) * gridSize;
 
@@ -799,7 +792,7 @@ export default class WorkspaceScene extends Phaser.Scene {
   }
 
   isPositionOccupied(x, y, excludeComponent = null) {
-    const componentSize = this.gridSize; // allow neighbors on adjacent grid cells
+    const componentSize = this.gridSize; 
     const tolerance = 5;
 
     for (let component of this.placedComponents) {
@@ -832,12 +825,12 @@ export default class WorkspaceScene extends Phaser.Scene {
       if (comp.start) this.graph.addNode(comp.start);
       if (comp.end) this.graph.addNode(comp.end);
     });
-    // Check circuit state and update bulb visuals in real-time
+    
     this.checkCircuitState();
   }
 
   checkCircuitState() {
-    // Run simulation to check if circuit is closed
+    
     if (this.graph.components.length > 0) {
       this.connected = this.graph.simulate();
       this.sim = this.connected === 1;
@@ -845,12 +838,12 @@ export default class WorkspaceScene extends Phaser.Scene {
       this.connected = undefined;
       this.sim = undefined;
     }
-    // Update bulb visuals based on current circuit state
+    
     this.updateBulbVisuals();
   }
 
   deleteComponent(component) {
-    // Prevent deletion of predefined challenge components
+    
     if (component.getData("isPredefined")) {
       return;
     }
@@ -858,7 +851,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     const idx = this.placedComponents.indexOf(component);
     if (idx !== -1) this.placedComponents.splice(idx, 1);
     component.destroy();
-    this.rebuildGraph(); // This will check circuit state and update bulbs
+    this.rebuildGraph(); 
     this.checkText.setText("");
     this.saveState('component_deleted');
   }
@@ -886,7 +879,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     this.connected = this.graph.simulate();
     this.sim = this.connected === 1;
 
-    // Update bulb visuals based on circuit state
+    
     this.updateBulbVisuals();
 
     this.checkCircuit();
@@ -895,7 +888,7 @@ export default class WorkspaceScene extends Phaser.Scene {
   updateBulbVisuals() {
     const isCircuitClosed = this.connected === 1;
 
-    // Find visual components for each bulb
+    
     this.placedComponents.forEach((component) => {
       const logicComp = component.getData("logicComponent");
       if (!logicComp || logicComp.type !== "bulb") return;
@@ -903,18 +896,18 @@ export default class WorkspaceScene extends Phaser.Scene {
       const bulbImage = component.getData("bulbImage");
       const bulbGlow = component.getData("bulbGlow");
 
-      // Kill any existing glow tweens first
+      
       if (bulbGlow) {
         this.tweens.killTweensOf(bulbGlow);
       }
 
       if (isCircuitClosed && bulbImage) {
-        // Turn on: add yellow tint and show glow
+        
         bulbImage.setTint(0xffff88);
         if (bulbGlow) {
           bulbGlow.setVisible(true);
           bulbGlow.setAlpha(0.3);
-          // Animate glow pulsing
+          
           this.tweens.add({
             targets: bulbGlow,
             alpha: { from: 0.3, to: 0.6 },
@@ -924,7 +917,7 @@ export default class WorkspaceScene extends Phaser.Scene {
           });
         }
       } else {
-        // Turn off: remove tint and hide glow
+        
         if (bulbImage) {
           bulbImage.clearTint();
         }
@@ -987,14 +980,14 @@ export default class WorkspaceScene extends Phaser.Scene {
     const comp = component.getData("logicComponent");
     if (!comp) return;
 
-    // derive local offsets: prefer comp-local offsets, else use half display
+    
     const halfW = 40;
     const halfH = 40;
 
     const localStart = comp.localStart || { x: -halfW, y: 0 };
     const localEnd = comp.localEnd || { x: halfW, y: 0 };
 
-    // get container angle in radians (Phaser keeps both .angle and .rotation)
+    
     const theta =
       typeof component.rotation === "number" && component.rotation
         ? component.rotation
@@ -1029,7 +1022,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       this.graph.addNode(comp.end);
     }
 
-    // debug dots are top-level objects (not children). update their positions
+    
     const startDot = component.getData("startDot");
     const endDot = component.getData("endDot");
     if (startDot && comp.start) {
@@ -1098,16 +1091,17 @@ export default class WorkspaceScene extends Phaser.Scene {
         comp.type = "bulb";
         comp.localStart = { x: -40, y: 0 };
         comp.localEnd = { x: 40, y: 0 };
-        // Create glow effect (initially hidden)
+        
         const glowCircle = this.add.circle(0, 0, 50, 0xffff00, 0.3);
         glowCircle.setVisible(false);
         component.add(glowCircle);
         component.setData("bulbGlow", glowCircle);
-        // Then add the bulb image on top
+        
         componentImage = this.add
           .image(0, 0, "bulb")
           .setOrigin(0.5)
           .setDisplaySize(80, 80);
+        componentImage.clearTint(); 
         component.add(componentImage);
         component.setData("logicComponent", comp);
         component.setData("bulbImage", componentImage);
@@ -1216,7 +1210,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       component.setScale(1);
     });
 
-    // Label
+    
     const label = this.add
       .text(0, 30, type, {
         fontSize: "11px",
@@ -1230,14 +1224,14 @@ export default class WorkspaceScene extends Phaser.Scene {
     component.setSize(70, 70);
     component.setInteractive({ draggable: true, useHandCursor: true });
 
-    // shrani originalno pozicijo in tip
+    
     component.setData("originalX", x);
     component.setData("originalY", y);
     component.setData("type", type);
     component.setData("color", color);
     component.setData("isInPanel", !fromLoad);
     component.setData("rotation", 0);
-    component.setData("componentId", id); // Unique ID for undo/redo
+    component.setData("componentId", id); 
     if (comp) component.setData("logicComponent", comp);
     component.setData("isDragging", false);
     component.setData("dragMoved", false);
@@ -1257,7 +1251,7 @@ export default class WorkspaceScene extends Phaser.Scene {
 
     component.on("drag", (pointer, dragX, dragY) => {
       component.setData("dragMoved", true);
-      // If component is in workspace layer, convert screen to workspace coordinates
+      
       if (
         this.workspaceLayer &&
         !component.getData("isInPanel") &&
@@ -1276,15 +1270,19 @@ export default class WorkspaceScene extends Phaser.Scene {
     });
 
     component.on("dragend", () => {
-      // Convert screen position to workspace coordinates for panel check
-      const screenX = component.x;
+      
+      
+      let screenX = component.x;
+      if (!component.getData("isInPanel") && component.parentContainer === this.workspaceLayer) {
+        screenX = component.x * this.currentZoom + this.workspaceOffsetX;
+      }
       const isInPanel = screenX < 200;
 
       if (isInPanel && !component.getData("isInPanel")) {
-        // Dragged back to panel - destroy it
-        // Prevent deletion of predefined challenge components
+        
+        
         if (component.getData("isPredefined")) {
-          // Return to previous position
+          
           const previousX = component.getData("previousX") || component.getData("originalX");
           const previousY = component.getData("previousY") || component.getData("originalY");
           component.x = previousX;
@@ -1296,8 +1294,8 @@ export default class WorkspaceScene extends Phaser.Scene {
         component.destroy();
         this.rebuildGraph();
       } else if (!isInPanel && component.getData("isInPanel")) {
-        // Component dragged from panel to workspace
-        // Convert screen coordinates to workspace coordinates
+        
+        
         const workspaceX = (screenX - this.workspaceOffsetX) / this.currentZoom;
         const workspaceY = (component.y - this.workspaceOffsetY) / this.currentZoom;
         
@@ -1311,7 +1309,7 @@ export default class WorkspaceScene extends Phaser.Scene {
           return;
         }
 
-        // Store workspace coordinates (component will be added to workspace layer)
+        
         component.x = aligned.x;
         component.y = aligned.y;
 
@@ -1320,7 +1318,7 @@ export default class WorkspaceScene extends Phaser.Scene {
           console.log("Component: " + comp);
           this.graph.addComponent(comp);
 
-          // Add start/end nodes to graph if they exist
+          
           if (comp.start) this.graph.addNode(comp.start);
           if (comp.end) this.graph.addNode(comp.end);
         }
@@ -1330,8 +1328,8 @@ export default class WorkspaceScene extends Phaser.Scene {
         component.setData("isRotated", false);
         component.setData("isInPanel", false);
 
-        // Add component to workspace layer BEFORE creating replacement
-        // This ensures the component is properly reparented with correct coordinates
+        
+        
         if (this.workspaceLayer && !component.getData("isInPanel")) {
           this.workspaceLayer.add(component);
         }
@@ -1344,11 +1342,11 @@ export default class WorkspaceScene extends Phaser.Scene {
         );
 
         this.placedComponents.push(component);
-        // Rebuild graph and check circuit state for real-time bulb updates
+        
         this.rebuildGraph();
         this.saveState('component_placed');
       } else if (!component.getData("isInPanel")) {
-        // na mizi in se postavi na mrežo
+        
         const snapped = this.snapToGrid(component.x, component.y);
         const aligned = this.alignToNearbyNodes(component, snapped);
 
@@ -1365,11 +1363,11 @@ export default class WorkspaceScene extends Phaser.Scene {
         }
 
         this.updateLogicNodePositions(component);
-        // Rebuild graph and check circuit state for real-time bulb updates
+        
         this.rebuildGraph();
         this.saveState('component_moved');
       } else {
-        // postavi se nazaj na originalno mesto
+        
         component.x = component.getData("originalX");
         component.y = component.getData("originalY");
 
@@ -1407,7 +1405,7 @@ export default class WorkspaceScene extends Phaser.Scene {
             duration: 150,
             ease: "Cubic.easeOut",
             onComplete: () => {
-              // Update node positions after rotation and check circuit state
+              
               this.updateLogicNodePositions(component);
               this.rebuildGraph();
               this.saveState('component_rotated');
@@ -1427,7 +1425,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       });
     });
 
-    // hover efekt
+    
     component.on("pointerover", () => {
       component.setScale(1.1);
     });
@@ -1509,18 +1507,18 @@ export default class WorkspaceScene extends Phaser.Scene {
         this.time.delayedCall(2000, () => this.nextChallenge());
       }
     }
-    // this.placedComponents.forEach(comp => comp.destroy());
-    // this.placedComponents = [];
-    // this.time.delayedCall(2000, () => this.nextChallenge());
-    // const isCorrect = currentChallenge.requiredComponents.every(req => placedTypes.includes(req));
-    // if (isCorrect) {
-    //   this.checkText.setText('Čestitke! Krog je pravilen.');
-    //   this.addPoints(10);
-    //   this.time.delayedCall(2000, () => this.nextChallenge());
-    // }
-    // else {
-    //   this.checkText.setText('Krog ni pravilen. Poskusi znova.');
-    // }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
   }
 
   nextChallenge() {
@@ -1710,7 +1708,7 @@ export default class WorkspaceScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     this.loadCircuitTexts = [];
 
-    // background
+    
     this.loadBg = this.add
       .rectangle(width / 2, height / 2, 500, 350, 0x000000, 0.85)
       .setOrigin(0.5)
@@ -1810,34 +1808,34 @@ export default class WorkspaceScene extends Phaser.Scene {
       this.placedComponents.push(component);
     });
     
-    // Rebuild graph in check circuit state after loading
+    
     this.rebuildGraph();
   }
 
   resetChallenge() {
-    // Remove all user-added components (not predefined)
+    
     const componentsToRemove = this.placedComponents.filter(
       comp => !this.predefinedComponents.includes(comp)
     );
     
     componentsToRemove.forEach(component => {
-      // Remove from graph
+      
       const logicComp = component.getData("logicComponent");
       if (logicComp) {
         this.graph.removeComponent(logicComp);
       }
       
-      // Remove from arrays
+      
       const placedIndex = this.placedComponents.indexOf(component);
       if (placedIndex > -1) {
         this.placedComponents.splice(placedIndex, 1);
       }
       
-      // Destroy the visual
+      
       component.destroy();
     });
     
-    // Reset predefined components to their original positions
+    
     this.predefinedComponents.forEach(component => {
       const originalX = component.getData("predefinedX");
       const originalY = component.getData("predefinedY");
@@ -1851,15 +1849,15 @@ export default class WorkspaceScene extends Phaser.Scene {
         component.setData("previousX", originalX);
         component.setData("previousY", originalY);
         
-        // Update logic node positions
+        
         this.updateLogicNodePositions(component);
       }
     });
     
-    // Rebuild graph to update connections
+    
     this.rebuildGraph();
     
-    // Clear undo/redo stacks
+    
     this.undoStack = [];
     this.redoStack = [];
   }
@@ -1925,12 +1923,15 @@ export default class WorkspaceScene extends Phaser.Scene {
     component.setData("previousY", worldY);
     
     if (isPredefined) {
-      // Store original positions for reset
+      
       component.setData("predefinedX", worldX);
       component.setData("predefinedY", worldY);
       component.setData("predefinedRotation", 0);
       this.predefinedComponents.push(component);
     }
+    
+    
+    this.updateLogicNodePositions(component);
     
     const comp = component.getData("logicComponent");
     if (comp) {
@@ -2042,7 +2043,7 @@ export default class WorkspaceScene extends Phaser.Scene {
   }
 
   createChallengePanel(width, goalText) {
-    // Position at the top right, above all buttons, offset left by 10px from edge
+    
     const challengePanel = this.add.container(width - 150, 140);
     challengePanel.setDepth(1001);
 
@@ -2085,10 +2086,10 @@ export default class WorkspaceScene extends Phaser.Scene {
   setupSimpleCircuitChallenge() {
     const { width, height } = this.cameras.main;
     
-    // Don't pre-place components - let users build from scratch
-    // Just show the challenge panel with instructions
     
-    // Position aligned with Lestvica button on the right
+    
+    
+    
     const challengePanel = this.add.container(width - 140, 200);
     challengePanel.setDepth(1001);
 
@@ -2398,7 +2399,7 @@ export default class WorkspaceScene extends Phaser.Scene {
   }
 
   completeChallengeSuccess() {
-    // Mark challenge as complete on server
+    
     const token = localStorage.getItem('token');
     const challengeId = parseInt(this.selectedChallengeId);
     
@@ -2486,7 +2487,7 @@ export default class WorkspaceScene extends Phaser.Scene {
       duration: 300
     });
 
-    // Auto-hide message after 3 seconds
+    
     this.time.delayedCall(3000, () => {
       if (this.challengeMessage) {
         this.tweens.add({

@@ -28,7 +28,7 @@ export default class LabScene extends Phaser.Scene {
     
     this.add.rectangle(0, height - 150, width, 150, 0xd4c4a8).setOrigin(0);
     
-    // miza
+    
     const tableX = width / 2;
     const tableY = height / 2 + 50;
     const tableWidth = 500;

@@ -13,7 +13,6 @@ class Component {
     }
 
     conducts(){
-        // Placeholder for component-specific conduction logic
     }
 }
 

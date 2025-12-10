@@ -8,14 +8,7 @@ const circuit = new CircuitGraph();
 const battery = new Battery('bat', new Node('bat_pos', 440, 480), new Node('bat_neg', 440, 400));
 const wire1 = new Wire("wire1", new Node('bat_pos', 440, 480));
 const wire2 = new Wire(wire1.end, new Node('B'));
-// const wire3 = new Wire(wire2.end, new Node('C'));
-// const wire4 = new Wire(wire3.end, new Node('D'));
-// const wire5 = new Wire(wire4.end, new Node('E'));
-// const wire6 = new Wire(wire5.end, new Node('F'));
-// const wire7 = new Wire(wire6.end, battery.end);
-// const wire8 = new Wire(wire2.end, new Node('G')); // Branch to create a loop
 const bulb = new Bulb('blb', wire8.end, new Node('H'));
-// const wire9 = new Wire(bulb.end, new Node('fjsd')); // Branch to create a loop
 
 console.log(`Adding components to circuit:`);
 console.log(battery);

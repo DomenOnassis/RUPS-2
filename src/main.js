@@ -34,10 +34,10 @@ const config = {
     ScoreboardScene
   ],
   physics: {
-    default: 'arcade',           
+    default: 'arcade',
     arcade: {
-      gravity: { y: 0 },         
-      debug: false               
+      gravity: { y: 0 },
+      debug: false
     }
   },
   scale: {

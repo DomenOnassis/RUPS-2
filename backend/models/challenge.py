@@ -6,7 +6,7 @@ class Challenge(SQLModel, table=True):
     title: str
     description: str
     workspace_type: str
-    difficulty: int 
+    difficulty: int
     requirements: dict = Field(sa_column=Column(JSON))
 
 

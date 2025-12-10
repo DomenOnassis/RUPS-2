@@ -6,7 +6,7 @@ class ChallengeCreate(BaseModel):
     description: str
     workspace_type: str
     difficulty: int
-    requirements: Dict[str, Any] 
+    requirements: Dict[str, Any]
 
 class ChallengeRead(BaseModel):
     id: int
